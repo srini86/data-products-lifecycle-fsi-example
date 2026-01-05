@@ -1,0 +1,59 @@
+# ============================================================================
+# Data Products for FSI - Git Ignore
+# ============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE settings
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Snowflake artifacts
+.snowflake/
+snowflake_credentials.json
+
+# dbt
+target/
+dbt_packages/
+logs/
+dbt_modules/
+
+# Local configuration
+.env
+.env.local
+*.local.yaml
+*.local.yml
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Test outputs
+test_output/
+coverage/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Generated files (keep examples, ignore user-generated)
+# Uncomment if you want to ignore generated outputs:
+# generated_output/
+

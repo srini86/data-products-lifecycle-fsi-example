@@ -1,0 +1,777 @@
+# ============================================================================
+# DATA CONTRACT: Retail Customer Churn Risk
+# ============================================================================
+# This contract codifies the business requirements from the Discovery canvas
+# into a machine-readable specification that drives implementation.
+#
+# Purpose: Single source of truth for schema, quality rules, SLAs, and 
+# governance - readable by both humans and automation tools (including AI).
+#
+# USAGE: This contract is the INPUT to the dbt Code Generator (03b) which
+# produces transformation SQL, masking policies, and schema files as OUTPUT.
+# ============================================================================
+
+apiVersion: v1
+kind: DataContract
+metadata:
+  name: retail-customer-churn-risk
+  version: "1.0.0"
+  namespace: retail_banking
+  labels:
+    domain: retail_banking
+    criticality: high
+    environment: production
+    data_classification: confidential
+  annotations:
+    created_by: "alex.morgan@bank.com"
+    last_updated: "2024-01-15T10:00:00Z"
+    business_purpose: "Predict and explain customer churn risk for retention"
+    canvas_reference: "01_discover/data_product_canvas.yaml"
+
+spec:
+  # ==========================================================================
+  # BASIC INFORMATION
+  # ==========================================================================
+  info:
+    title: "Retail Customer Churn Risk Data Product"
+    description: |
+      A governed, daily-refreshed data product providing unified churn risk 
+      scores for retail banking customers. Combines behavioral signals, 
+      transactional patterns, and engagement data to produce explainable 
+      risk scores that power retention campaigns and branch interventions.
+    owner:
+      name: "Alex Morgan"
+      email: "alex.morgan@bank.com"
+      team: "Retail Customer Analytics"
+      slack: "#retail-analytics"
+    contact:
+      support_email: "retail-data-support@bank.com"
+      documentation_url: "https://docs.bank.com/data-products/churn-risk"
+      runbook_url: "https://runbooks.bank.com/churn-risk-product"
+
+  # ==========================================================================
+  # DATA SOURCE INFORMATION
+  # ==========================================================================
+  source:
+    system: "Snowflake Data Platform"
+    location: "RETAIL_BANKING_DB.RAW"
+    format: "snowflake_table"
+    update_frequency: "daily"
+    update_schedule: "0 4 * * *"  # Daily at 4 AM UTC
+    timezone: "UTC"
+    upstream_tables:
+      - name: "CUSTOMERS"
+        location: "RETAIL_BANKING_DB.RAW.CUSTOMERS"
+        description: "Core customer demographics and profile"
+        key_columns: ["customer_id", "customer_name", "customer_segment", "region", "onboarding_date"]
+        filter: "kyc_status = 'VERIFIED'"
+      - name: "ACCOUNTS"
+        location: "RETAIL_BANKING_DB.RAW.ACCOUNTS"
+        description: "Customer accounts and products"
+        key_columns: ["account_id", "customer_id", "account_type", "current_balance"]
+        filter: "account_status = 'ACTIVE'"
+      - name: "TRANSACTIONS"
+        location: "RETAIL_BANKING_DB.RAW.TRANSACTIONS"
+        description: "Account transaction history"
+        key_columns: ["txn_id", "account_id", "txn_date", "amount", "channel"]
+        filter: "Last 6 months of transactions"
+      - name: "DIGITAL_ENGAGEMENT"
+        location: "RETAIL_BANKING_DB.RAW.DIGITAL_ENGAGEMENT"
+        description: "Mobile app and online banking activity"
+        key_columns: ["customer_id", "login_count_30d", "mobile_app_active", "features_used_count"]
+        filter: "Latest measurement date only"
+      - name: "COMPLAINTS"
+        location: "RETAIL_BANKING_DB.RAW.COMPLAINTS"
+        description: "Customer complaints and service issues"
+        key_columns: ["complaint_id", "customer_id", "status", "severity"]
+        filter: "Last 12 months of complaints"
+
+  # ==========================================================================
+  # DESTINATION INFORMATION
+  # ==========================================================================
+  destination:
+    database: "RETAIL_BANKING_DB"
+    schema: "DATA_PRODUCTS"
+    table: "RETAIL_CUSTOMER_CHURN_RISK"
+    materialization: "table"  # Options: table, view, incremental
+
+  # ==========================================================================
+  # TARGET SCHEMA DEFINITION
+  # ==========================================================================
+  schema:
+    type: "object"
+    grain: "One row per retail customer"
+    primary_key: "customer_id"
+    
+    properties:
+      # ----------------------------------------------------------------------
+      # Customer Identifiers
+      # ----------------------------------------------------------------------
+      customer_id:
+        type: "string"
+        description: "Unique identifier for the retail customer"
+        source: "CUSTOMERS.customer_id"
+        constraints:
+          required: true
+          unique: true
+          max_length: 50
+        pii: false
+        tags: ["identifier", "customer", "business_key"]
+        masking_policy: null
+
+      customer_name:
+        type: "string"
+        description: "Full name of the customer"
+        source: "CUSTOMERS.customer_name"
+        constraints:
+          required: true
+          max_length: 200
+        pii: true
+        classification: "confidential"
+        tags: ["pii", "customer", "name"]
+        masking_policy: "CUSTOMER_NAME_MASK"
+
+      customer_segment:
+        type: "string"
+        description: "Customer segment classification"
+        source: "CUSTOMERS.customer_segment"
+        constraints:
+          required: true
+          enum: ["MASS_MARKET", "MASS_AFFLUENT", "AFFLUENT", "HIGH_NET_WORTH"]
+        pii: false
+        tags: ["customer", "segment", "classification"]
+        masking_policy: null
+
+      region:
+        type: "string"
+        description: "Geographic region of the customer"
+        source: "CUSTOMERS.region"
+        constraints:
+          required: true
+          max_length: 100
+        pii: false
+        tags: ["customer", "geography"]
+        masking_policy: null
+
+      # ----------------------------------------------------------------------
+      # Relationship Attributes
+      # ----------------------------------------------------------------------
+      relationship_tenure_months:
+        type: "integer"
+        description: "Number of months since customer onboarding"
+        derivation: "Calculate months between CUSTOMERS.onboarding_date and current date"
+        constraints:
+          required: true
+          minimum: 1
+        pii: false
+        tags: ["customer", "tenure", "relationship"]
+        masking_policy: null
+
+      total_products_held:
+        type: "integer"
+        description: "Count of active products held by customer"
+        derivation: "Count distinct active accounts per customer from ACCOUNTS"
+        constraints:
+          required: true
+          minimum: 0
+        pii: false
+        tags: ["customer", "products", "relationship"]
+        masking_policy: null
+
+      primary_account_balance:
+        type: "number"
+        description: "Balance of primary current account in GBP"
+        derivation: "Maximum balance from ACCOUNTS where account_type is CURRENT_ACCOUNT"
+        constraints:
+          required: true
+          precision: 2
+        pii: false
+        tags: ["financial", "balance", "account"]
+        masking_policy: null
+
+      total_relationship_balance:
+        type: "number"
+        description: "Sum of all account balances in GBP"
+        derivation: "Sum of current_balance from all active ACCOUNTS per customer"
+        constraints:
+          required: true
+          precision: 2
+        pii: false
+        tags: ["financial", "balance", "relationship"]
+        masking_policy: null
+
+      # ----------------------------------------------------------------------
+      # Behavioral Signals (Churn Indicators)
+      # ----------------------------------------------------------------------
+      avg_monthly_transactions_3m:
+        type: "number"
+        description: "Average monthly transaction count over last 3 months"
+        derivation: "Count transactions in last 3 months divided by 3"
+        constraints:
+          required: true
+          minimum: 0
+          precision: 1
+        pii: false
+        tags: ["behavioral", "transactions", "activity"]
+        masking_policy: null
+
+      transaction_trend:
+        type: "string"
+        description: "Transaction volume trend direction"
+        derivation: |
+          Compare transaction count in recent 3 months vs prior 3 months:
+          - INCREASING: recent > prior * 1.1
+          - STABLE: recent between prior * 0.9 and prior * 1.1
+          - DECLINING: recent between prior * 0.5 and prior * 0.9
+          - SEVERELY_DECLINING: recent < prior * 0.5
+        constraints:
+          required: true
+          enum: ["INCREASING", "STABLE", "DECLINING", "SEVERELY_DECLINING"]
+        pii: false
+        tags: ["behavioral", "trend", "indicator"]
+        masking_policy: null
+
+      balance_trend:
+        type: "string"
+        description: "Account balance trend direction"
+        derivation: |
+          Classify based on total_relationship_balance:
+          - STABLE: balance > 1000
+          - DECLINING: balance <= 1000
+          Note: In production, compare against historical balance snapshots
+        constraints:
+          required: true
+          enum: ["INCREASING", "STABLE", "DECLINING", "SEVERELY_DECLINING"]
+        pii: false
+        tags: ["behavioral", "trend", "indicator"]
+        masking_policy: null
+
+      days_since_last_transaction:
+        type: "integer"
+        description: "Days since the last account transaction"
+        derivation: "Days between most recent transaction date and current date"
+        constraints:
+          required: true
+          minimum: 0
+        pii: false
+        tags: ["behavioral", "dormancy", "activity"]
+        masking_policy: null
+
+      # ----------------------------------------------------------------------
+      # Digital Engagement Signals
+      # ----------------------------------------------------------------------
+      mobile_app_active:
+        type: "boolean"
+        description: "Whether customer has used mobile app in last 30 days"
+        source: "DIGITAL_ENGAGEMENT.mobile_app_active"
+        constraints:
+          required: true
+        pii: false
+        tags: ["digital", "engagement", "mobile"]
+        masking_policy: null
+
+      login_count_30d:
+        type: "integer"
+        description: "Number of digital banking logins in last 30 days"
+        source: "DIGITAL_ENGAGEMENT.login_count_30d"
+        constraints:
+          required: true
+          minimum: 0
+        pii: false
+        tags: ["digital", "engagement", "activity"]
+        masking_policy: null
+
+      digital_engagement_score:
+        type: "integer"
+        description: "Composite digital engagement score (0-100)"
+        derivation: |
+          Calculate score from DIGITAL_ENGAGEMENT:
+          - Login frequency: login_count_30d * 2 (max contribution ~60 points)
+          - Mobile active: +20 points if mobile_app_active is true
+          - Online active: +10 points if online_banking_active is true  
+          - Feature adoption: features_used_count * 2 (max ~24 points)
+          Cap total at 100
+        constraints:
+          required: true
+          minimum: 0
+          maximum: 100
+        pii: false
+        tags: ["digital", "engagement", "score"]
+        masking_policy: null
+
+      # ----------------------------------------------------------------------
+      # Complaint & Service Signals
+      # ----------------------------------------------------------------------
+      open_complaints_count:
+        type: "integer"
+        description: "Number of currently open complaints"
+        derivation: "Count of COMPLAINTS where status = 'OPEN' per customer"
+        constraints:
+          required: true
+          minimum: 0
+        pii: false
+        tags: ["service", "complaints", "risk_factor"]
+        masking_policy: null
+
+      complaints_last_12m:
+        type: "integer"
+        description: "Total complaints filed in last 12 months"
+        derivation: "Count of all COMPLAINTS per customer in last 12 months"
+        constraints:
+          required: true
+          minimum: 0
+        pii: false
+        tags: ["service", "complaints", "history"]
+        masking_policy: null
+
+      has_unresolved_complaint:
+        type: "boolean"
+        description: "Flag indicating unresolved complaint exists"
+        derivation: "True if open_complaints_count > 0"
+        constraints:
+          required: true
+        pii: false
+        tags: ["service", "complaints", "risk_flag"]
+        masking_policy: null
+
+      # ----------------------------------------------------------------------
+      # Churn Risk Outputs (Core Product Value)
+      # ----------------------------------------------------------------------
+      churn_risk_score:
+        type: "integer"
+        description: "Calculated churn risk score (0-100, higher = more risk)"
+        derivation: |
+          Calculate risk score using weighted factors:
+          
+          BASE SCORE: Start at 20
+          
+          RISK FACTORS (add points):
+          - declining_balance_flag: +20 points
+          - reduced_activity_flag: +20 points
+          - low_engagement_flag: +15 points
+          - complaint_flag: +15 points
+          - dormancy_flag: +25 points
+          
+          PROTECTIVE FACTORS (subtract points):
+          - Multi-product customer (3+ products): -10 points
+          - Long tenure (>60 months): -10 points
+          - Highly engaged digital (score >70): -10 points
+          
+          SEGMENT ADJUSTMENT:
+          - MASS_MARKET: +5 points
+          - HIGH_NET_WORTH: -5 points
+          
+          Cap final score between 0 and 100
+        constraints:
+          required: true
+          minimum: 0
+          maximum: 100
+        pii: false
+        tags: ["output", "risk_score", "churn", "primary"]
+        masking_policy: null
+
+      risk_tier:
+        type: "string"
+        description: "Risk categorization based on score thresholds"
+        derivation: |
+          Classify based on churn_risk_score:
+          - LOW: score 0-25
+          - MEDIUM: score 26-50
+          - HIGH: score 51-75
+          - CRITICAL: score 76-100
+        constraints:
+          required: true
+          enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        pii: false
+        tags: ["output", "risk_tier", "churn", "classification"]
+        masking_policy: null
+
+      # ----------------------------------------------------------------------
+      # Risk Drivers (Explainability)
+      # ----------------------------------------------------------------------
+      declining_balance_flag:
+        type: "boolean"
+        description: "Significant balance decline detected"
+        derivation: |
+          True if:
+          - total_relationship_balance < 500, OR
+          - primary_account_balance < 100
+        constraints:
+          required: true
+        pii: false
+        tags: ["risk_driver", "explainability", "balance"]
+        masking_policy: null
+
+      reduced_activity_flag:
+        type: "boolean"
+        description: "Reduced transaction activity detected"
+        derivation: |
+          True if transaction count in recent 3 months is less than 
+          70% of transaction count in prior 3 months
+        constraints:
+          required: true
+        pii: false
+        tags: ["risk_driver", "explainability", "activity"]
+        masking_policy: null
+
+      low_engagement_flag:
+        type: "boolean"
+        description: "Low digital engagement detected"
+        derivation: |
+          True if:
+          - login_count_30d < 3, AND
+          - mobile_app_active is false
+        constraints:
+          required: true
+        pii: false
+        tags: ["risk_driver", "explainability", "engagement"]
+        masking_policy: null
+
+      complaint_flag:
+        type: "boolean"
+        description: "Recent or unresolved complaint exists"
+        derivation: |
+          True if:
+          - open_complaints_count > 0, OR
+          - complaints_last_12m >= 2
+        constraints:
+          required: true
+        pii: false
+        tags: ["risk_driver", "explainability", "complaints"]
+        masking_policy: null
+
+      dormancy_flag:
+        type: "boolean"
+        description: "Account showing dormancy signals"
+        derivation: "True if days_since_last_transaction > 45"
+        constraints:
+          required: true
+        pii: false
+        tags: ["risk_driver", "explainability", "dormancy"]
+        masking_policy: null
+
+      primary_risk_driver:
+        type: "string"
+        description: "The most significant factor contributing to churn risk"
+        derivation: |
+          Determine primary driver by priority:
+          1. DORMANCY - if dormancy_flag and days_since_last_transaction > 60
+          2. BALANCE_DECLINE - if declining_balance_flag and primary_account_balance < 100
+          3. ACTIVITY_REDUCTION - if reduced_activity_flag
+          4. COMPLAINTS - if complaint_flag and open_complaints_count > 0
+          5. LOW_ENGAGEMENT - if low_engagement_flag
+          6. MULTI_FACTOR - if churn_risk_score > 50 but no single driver dominates
+          7. NONE - otherwise
+        constraints:
+          required: true
+          enum: ["BALANCE_DECLINE", "ACTIVITY_REDUCTION", "LOW_ENGAGEMENT", 
+                 "COMPLAINTS", "DORMANCY", "MULTI_FACTOR", "NONE"]
+        pii: false
+        tags: ["output", "explainability", "primary_driver"]
+        masking_policy: null
+
+      risk_drivers_json:
+        type: "string"
+        description: "JSON object of all contributing risk factors with details"
+        derivation: |
+          Build JSON object containing each risk driver with:
+          - flag status (true/false)
+          - relevant metric value
+          Example structure:
+          {
+            "declining_balance": {"flag": true, "balance": 450.00},
+            "reduced_activity": {"flag": false, "trend": "STABLE"},
+            "low_engagement": {"flag": true, "score": 15},
+            "complaints": {"flag": false, "open_count": 0, "total_12m": 1},
+            "dormancy": {"flag": false, "days_inactive": 12}
+          }
+        constraints:
+          required: true
+        pii: false
+        tags: ["output", "explainability", "drivers_detail"]
+        masking_policy: null
+
+      # ----------------------------------------------------------------------
+      # Recommended Actions
+      # ----------------------------------------------------------------------
+      recommended_intervention:
+        type: "string"
+        description: "Suggested retention intervention based on risk profile"
+        derivation: |
+          Determine intervention by risk level:
+          - URGENT_ESCALATION: score > 75
+          - RELATIONSHIP_CALL: score > 50 AND complaint_flag is true
+          - RETENTION_OFFER: score > 50
+          - DIGITAL_ENGAGEMENT: score > 25 AND low_engagement_flag is true
+          - BRANCH_MEETING: score > 25
+          - NO_ACTION: otherwise
+        constraints:
+          required: true
+          enum: ["NO_ACTION", "DIGITAL_ENGAGEMENT", "RELATIONSHIP_CALL", 
+                 "BRANCH_MEETING", "RETENTION_OFFER", "URGENT_ESCALATION"]
+        pii: false
+        tags: ["output", "recommendation", "action"]
+        masking_policy: null
+
+      intervention_priority:
+        type: "integer"
+        description: "Priority ranking for intervention (1=highest)"
+        derivation: |
+          Assign priority based on score:
+          - Priority 1: score > 75
+          - Priority 2: score > 50
+          - Priority 3: score > 25
+          - Priority 4: score <= 25
+        constraints:
+          required: true
+          minimum: 1
+          maximum: 4
+        pii: false
+        tags: ["output", "priority", "action"]
+        masking_policy: null
+
+      # ----------------------------------------------------------------------
+      # Metadata & Audit
+      # ----------------------------------------------------------------------
+      score_calculated_at:
+        type: "timestamp"
+        description: "Timestamp when churn score was calculated"
+        derivation: "Current timestamp at time of transformation"
+        constraints:
+          required: true
+        pii: false
+        tags: ["metadata", "audit", "timestamp"]
+        masking_policy: null
+
+      data_as_of_date:
+        type: "date"
+        description: "Business date of the source data"
+        derivation: "Current date at time of transformation"
+        constraints:
+          required: true
+        pii: false
+        tags: ["metadata", "audit", "date"]
+        masking_policy: null
+
+      model_version:
+        type: "string"
+        description: "Version of the churn risk model used"
+        derivation: "Set to contract version: 1.0.0"
+        constraints:
+          required: true
+          max_length: 50
+        pii: false
+        tags: ["metadata", "model", "version"]
+        masking_policy: null
+
+  # ==========================================================================
+  # MASKING POLICIES (English Definitions)
+  # ==========================================================================
+  # These definitions are interpreted by the dbt Code Generator to produce
+  # Snowflake-native masking policy SQL in the output folder.
+  # ==========================================================================
+  masking_policies:
+    CUSTOMER_NAME_MASK:
+      description: "Mask customer name for unauthorized users"
+      applies_to: "customer_name"
+      data_type: "STRING"
+      behavior: |
+        For authorized roles (retention_analyst, branch_manager, customer_analytics, 
+        compliance_officer, data_science_team): Show full value
+        For all other roles: Show first character followed by four asterisks
+        Example: "John Smith" becomes "J****"
+      authorized_roles:
+        - "retention_analyst"
+        - "branch_manager"
+        - "customer_analytics"
+        - "compliance_officer"
+        - "data_science_team"
+
+  # ==========================================================================
+  # DATA QUALITY RULES
+  # ==========================================================================
+  data_quality:
+    completeness:
+      customer_id: 100
+      customer_name: 100
+      churn_risk_score: 100
+      risk_tier: 100
+      primary_risk_driver: 100
+      recommended_intervention: 100
+      score_calculated_at: 100
+      # Allow some nulls for optional fields
+      complaints_last_12m: 95
+      digital_engagement_score: 90
+
+    uniqueness:
+      - combination: ["customer_id"]
+        description: "Each customer should appear exactly once"
+
+    validity:
+      churn_risk_score: "Must be between 0 and 100"
+      risk_tier: "Must be one of: LOW, MEDIUM, HIGH, CRITICAL"
+      relationship_tenure_months: "Must be positive integer"
+      customer_segment: "Must be valid segment value"
+
+    referential_integrity:
+      - description: "Customer ID must exist in source CUSTOMERS table"
+        constraint: "customer_id REFERENCES RAW.CUSTOMERS(customer_id)"
+
+    # ========================================================================
+    # BUSINESS RULES (English Definitions for Validation)
+    # ========================================================================
+    # These rules define data integrity constraints that should be enforced
+    # as dbt tests. The Code Generator produces test SQL from these.
+    # ========================================================================
+    business_rules:
+      - rule_id: "BR001"
+        name: "Risk tier must align with score"
+        description: |
+          The risk_tier value must correspond to the churn_risk_score:
+          - LOW tier only when score is 0-25
+          - MEDIUM tier only when score is 26-50
+          - HIGH tier only when score is 51-75
+          - CRITICAL tier only when score is 76-100
+        severity: "error"
+        
+      - rule_id: "BR002"
+        name: "At least one risk driver must be flagged for HIGH/CRITICAL risk"
+        description: |
+          When a customer has HIGH or CRITICAL risk tier, at least one of these
+          risk driver flags must be true:
+          - declining_balance_flag
+          - reduced_activity_flag
+          - low_engagement_flag
+          - complaint_flag
+          - dormancy_flag
+        severity: "error"
+        
+      - rule_id: "BR003"
+        name: "Urgent escalation only for CRITICAL risk tier"
+        description: |
+          The recommended_intervention can only be URGENT_ESCALATION when
+          the risk_tier is CRITICAL. This ensures escalation resources
+          are reserved for the highest-risk customers.
+        severity: "error"
+        
+      - rule_id: "BR004"
+        name: "Intervention priority must align with risk score"
+        description: |
+          Priority assignments must follow the score-based logic:
+          - Priority 1 only when score > 75
+          - Priority 2 only when score 51-75
+          - Priority 3 only when score 26-50
+          - Priority 4 only when score <= 25
+        severity: "warning"
+
+    freshness:
+      max_age: "25 hours"
+      warning_threshold: "24 hours"
+
+  # ==========================================================================
+  # SERVICE LEVEL AGREEMENT
+  # ==========================================================================
+  sla:
+    availability: "99.5%"
+    response_time: "< 5 seconds for standard queries"
+    data_freshness: "Data updated daily by 6 AM UTC"
+    support_response: "< 4 hours during business hours"
+    scheduled_maintenance: "Monthly, first Sunday 2-4 AM UTC"
+
+  # ==========================================================================
+  # ACCESS CONTROLS
+  # ==========================================================================
+  access_control:
+    classification: "confidential"
+    access_level: "restricted"
+    authorized_roles:
+      - "retention_analyst"
+      - "branch_manager"
+      - "customer_analytics"
+      - "compliance_officer"
+      - "data_science_team"
+    unauthorized_roles:
+      - "external_contractor"
+      - "intern"
+    data_governance:
+      pii_fields:
+        - "customer_name"
+      retention_policy: "7 years from account closure"
+      deletion_policy: "Hard delete after retention period with audit log"
+
+  # ==========================================================================
+  # DEPENDENCIES
+  # ==========================================================================
+  dependencies:
+    upstream:
+      - name: "CUSTOMERS"
+        location: "RETAIL_BANKING_DB.RAW.CUSTOMERS"
+        criticality: "critical"
+        update_frequency: "daily"
+      - name: "ACCOUNTS"
+        location: "RETAIL_BANKING_DB.RAW.ACCOUNTS"
+        criticality: "critical"
+        update_frequency: "daily"
+      - name: "TRANSACTIONS"
+        location: "RETAIL_BANKING_DB.RAW.TRANSACTIONS"
+        criticality: "critical"
+        update_frequency: "daily"
+      - name: "DIGITAL_ENGAGEMENT"
+        location: "RETAIL_BANKING_DB.RAW.DIGITAL_ENGAGEMENT"
+        criticality: "high"
+        update_frequency: "daily"
+      - name: "COMPLAINTS"
+        location: "RETAIL_BANKING_DB.RAW.COMPLAINTS"
+        criticality: "high"
+        update_frequency: "daily"
+    
+    downstream:
+      - name: "Retention Campaign Dashboard"
+        system: "Tableau"
+        criticality: "high"
+      - name: "Branch Manager Portal"
+        system: "Internal App"
+        criticality: "high"
+      - name: "Churn Prediction ML Model"
+        system: "Snowflake ML"
+        criticality: "medium"
+
+  # ==========================================================================
+  # MONITORING
+  # ==========================================================================
+  monitoring:
+    metrics:
+      - name: "row_count"
+        threshold: "> 50000"
+        alert_on: "below_threshold"
+        description: "Ensure minimum customer coverage"
+      - name: "data_freshness"
+        threshold: "< 25 hours"
+        alert_on: "above_threshold"
+      - name: "high_risk_percentage"
+        threshold: "< 25%"
+        alert_on: "above_threshold"
+        description: "Alert if too many customers flagged high risk"
+      - name: "null_percentage_risk_score"
+        threshold: "= 0%"
+        alert_on: "above_threshold"
+    
+    alerts:
+      - type: "email"
+        recipients: ["retail-data-support@bank.com"]
+        conditions: ["data_quality_failure", "sla_breach"]
+      - type: "slack"
+        channel: "#retail-data-alerts"
+        conditions: ["pipeline_failure", "freshness_violation"]
+
+  # ==========================================================================
+  # COMPLIANCE
+  # ==========================================================================
+  compliance:
+    regulations:
+      - "FCA Consumer Duty"
+      - "GDPR"
+      - "PRA Operational Resilience"
+    audit_trail: true
+    model_governance: "Subject to Model Risk Management framework"
+    explainability_requirement: "All predictions must have documented factors"
