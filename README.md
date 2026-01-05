@@ -65,10 +65,27 @@ LEAST(100, GREATEST(0,
 
 ## 🚀 Quick Start
 
+### Option A: Snowflake Git Integration (Recommended)
+
+Run these SQL scripts directly in Snowflake Snowsight:
+
+```sql
+-- Step 1: Create Git integration and connect to this repo
+-- Run: 00_setup/01_git_integration.sql
+
+-- Step 2: Run all setup scripts from Git
+-- Run: 00_setup/02_run_setup_from_git.sql
+
+-- Step 3: (Optional) Deploy Streamlit app
+-- Run: 00_setup/03_deploy_streamlit_app.sql
+```
+
+### Option B: Local Setup
+
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/data-products-fsi.git
-cd data-products-fsi
+git clone https://github.com/srini86/data-products-lifecycle-fsi-example.git
+cd data-products-lifecycle-fsi-example
 
 # Run the setup script (interactive)
 ./setup.sh
@@ -96,7 +113,26 @@ cd data-products-fsi
 
 ## 📥 Installation
 
-### Option 1: Automated Setup (Recommended)
+### Option 1: Snowflake Git Integration (Recommended)
+
+The fastest way to get started - run everything directly from Git within Snowflake:
+
+```sql
+-- 1. Open Snowflake Snowsight
+-- 2. Create a new worksheet
+-- 3. Copy and run: 00_setup/01_git_integration.sql
+-- 4. Then run: 00_setup/02_run_setup_from_git.sql
+```
+
+This creates a Git repository connection and runs all setup scripts automatically.
+
+**Benefits:**
+- No local setup required
+- Always uses latest code from Git
+- Streamlit apps deploy directly from Git
+- Easy to refresh with `ALTER GIT REPOSITORY ... FETCH`
+
+### Option 2: Local Setup Script
 
 ```bash
 # Make the setup script executable
@@ -113,7 +149,7 @@ The script will guide you through:
 4. Setting up monitoring
 5. (Optional) Deploying the Streamlit app
 
-### Option 2: Manual Setup
+### Option 3: Manual Setup
 
 #### Step 1: Create Sample Data
 ```sql
@@ -164,7 +200,13 @@ dbt test --select retail_customer_churn_risk
 ## 📁 Repository Structure
 
 ```
-data-products-fsi/
+data-products-lifecycle-fsi-example/
+│
+├── 00_setup/                             # 🚀 START HERE
+│   ├── 01_git_integration.sql            # Connect Snowflake to this Git repo
+│   ├── 02_run_setup_from_git.sql         # Run all setup scripts from Git
+│   ├── 03_deploy_streamlit_app.sql       # Deploy Streamlit app from Git
+│   └── README.md
 │
 ├── 01_discover/
 │   └── data_product_canvas.yaml          # Business discovery canvas
@@ -188,7 +230,7 @@ data-products-fsi/
 ├── 05_refine/
 │   └── evolution_example.sql             # Product evolution patterns
 │
-├── setup.sh                              # Automated setup script
+├── setup.sh                              # Local setup script (alternative)
 └── README.md
 ```
 
