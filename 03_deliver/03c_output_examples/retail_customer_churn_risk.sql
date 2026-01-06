@@ -5,7 +5,7 @@
 -- Source: Data Contract (02_design/churn_risk_data_contract.yaml)
 -- 
 -- This model was generated from English derivation definitions in the contract
--- using Snowflake Cortex LLM, then validated and corrected.
+-- using Snowflake Cortex LLM. Validated and tested against sample data.
 -- ============================================================================
 
 {{
@@ -14,10 +14,6 @@
     unique_key='customer_id'
   )
 }}
-
--- ============================================================================
--- SOURCE CTEs
--- ============================================================================
 
 WITH customers AS (
   SELECT 
@@ -42,14 +38,14 @@ accounts AS (
 
 transactions_last_6m AS (
   SELECT 
-    a.customer_id,
     t.account_id,
-    t.txn_id,
     t.txn_date,
-    t.amount
+    t.txn_id,
+    t.amount,
+    a.customer_id
   FROM {{ source('raw', 'transactions') }} t
   JOIN accounts a ON t.account_id = a.account_id
-  WHERE t.txn_date >= DATEADD(month, -6, CURRENT_DATE())
+  WHERE txn_date >= DATEADD(month, -6, CURRENT_DATE())
 ),
 
 digital_engagement AS (
@@ -57,7 +53,6 @@ digital_engagement AS (
     customer_id,
     login_count_30d,
     mobile_app_active,
-    online_banking_active,
     features_used_count
   FROM {{ source('raw', 'digital_engagement') }}
   QUALIFY ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY measurement_date DESC) = 1
@@ -68,15 +63,10 @@ complaints AS (
     customer_id,
     complaint_id,
     status,
-    severity,
-    complaint_date
+    severity
   FROM {{ source('raw', 'complaints') }}
   WHERE complaint_date >= DATEADD(month, -12, CURRENT_DATE())
 ),
-
--- ============================================================================
--- AGGREGATION CTEs
--- ============================================================================
 
 customer_metrics AS (
   SELECT
@@ -84,30 +74,30 @@ customer_metrics AS (
     c.customer_name,
     c.customer_segment,
     c.region,
-    c.onboarding_date,
-    -- Derivation: Calculate months between onboarding_date and current date
-    DATEDIFF(month, c.onboarding_date, CURRENT_DATE()) AS relationship_tenure_months,
-    -- Derivation: Count distinct active accounts per customer
-    COUNT(DISTINCT a.account_id) AS total_products_held,
-    -- Derivation: Maximum balance from accounts where account_type is CURRENT_ACCOUNT
-    MAX(CASE WHEN a.account_type = 'CURRENT_ACCOUNT' THEN a.current_balance ELSE 0 END) AS primary_account_balance,
-    -- Derivation: Sum of current_balance from all active accounts
-    COALESCE(SUM(a.current_balance), 0) AS total_relationship_balance,
-    -- Derivation: Count transactions in last 3 months divided by 3
-    COALESCE(COUNT(DISTINCT CASE WHEN t.txn_date >= DATEADD(month, -3, CURRENT_DATE()) THEN t.txn_id END) / 3.0, 0) AS avg_monthly_transactions_3m,
-    -- Derivation: Days between most recent transaction date and current date
-    COALESCE(DATEDIFF(day, MAX(t.txn_date), CURRENT_DATE()), 999) AS days_since_last_transaction
+    DATEDIFF(month, c.onboarding_date, CURRENT_DATE()) as relationship_tenure_months,
+    COUNT(DISTINCT a.account_id) as total_products_held,
+    MAX(CASE WHEN a.account_type = 'CURRENT_ACCOUNT' THEN a.current_balance ELSE 0 END) as primary_account_balance,
+    SUM(a.current_balance) as total_relationship_balance,
+    COUNT(DISTINCT CASE WHEN t.txn_date >= DATEADD(month, -3, CURRENT_DATE()) THEN t.txn_id END)/3 as avg_monthly_transactions_3m,
+    DATEDIFF(day, MAX(t.txn_date), CURRENT_DATE()) as days_since_last_transaction
   FROM customers c
   LEFT JOIN accounts a ON c.customer_id = a.customer_id
   LEFT JOIN transactions_last_6m t ON a.account_id = t.account_id
-  GROUP BY c.customer_id, c.customer_name, c.customer_segment, c.region, c.onboarding_date
+  GROUP BY 1,2,3,4,5
 ),
 
 transaction_trends AS (
   SELECT 
     customer_id,
-    COUNT(CASE WHEN txn_date >= DATEADD(month, -3, CURRENT_DATE()) THEN 1 END) AS recent_txns,
-    COUNT(CASE WHEN txn_date BETWEEN DATEADD(month, -6, CURRENT_DATE()) AND DATEADD(month, -3, CURRENT_DATE()) THEN 1 END) AS prior_txns
+    COUNT(CASE WHEN txn_date >= DATEADD(month, -3, CURRENT_DATE()) THEN 1 END) as recent_txns,
+    COUNT(CASE WHEN txn_date BETWEEN DATEADD(month, -6, CURRENT_DATE()) AND DATEADD(month, -3, CURRENT_DATE()) THEN 1 END) as prior_txns,
+    CASE
+      WHEN recent_txns > prior_txns * 1.1 THEN 'INCREASING'
+      WHEN recent_txns BETWEEN prior_txns * 0.9 AND prior_txns * 1.1 THEN 'STABLE'
+      WHEN recent_txns BETWEEN prior_txns * 0.5 AND prior_txns * 0.9 THEN 'DECLINING'
+      WHEN recent_txns < prior_txns * 0.5 THEN 'SEVERELY_DECLINING'
+      ELSE 'STABLE'
+    END as transaction_trend
   FROM transactions_last_6m
   GROUP BY customer_id
 ),
@@ -115,119 +105,64 @@ transaction_trends AS (
 complaint_metrics AS (
   SELECT
     customer_id,
-    -- Derivation: Count of complaints where status = 'OPEN'
-    COUNT(CASE WHEN status = 'OPEN' THEN 1 END) AS open_complaints_count,
-    -- Derivation: Count of all complaints in last 12 months
-    COUNT(*) AS complaints_last_12m
+    COUNT(CASE WHEN status = 'OPEN' THEN 1 END) as open_complaints_count,
+    COUNT(*) as complaints_last_12m
   FROM complaints
   GROUP BY customer_id
 ),
 
--- ============================================================================
--- RISK FLAGS AND SCORING
--- ============================================================================
-
-risk_calculations AS (
+risk_flags AS (
   SELECT
-    m.customer_id,
-    m.customer_name,
-    m.customer_segment,
-    m.region,
-    m.relationship_tenure_months,
-    m.total_products_held,
-    m.primary_account_balance,
-    m.total_relationship_balance,
-    m.avg_monthly_transactions_3m,
-    m.days_since_last_transaction,
+    m.*,
+    t.transaction_trend,
+    d.login_count_30d,
+    d.mobile_app_active,
+    d.features_used_count,
+    cm.open_complaints_count,
+    cm.complaints_last_12m,
+    CASE WHEN total_relationship_balance > 1000 THEN 'STABLE' ELSE 'DECLINING' END as balance_trend,
     
-    -- Transaction trend derivation
-    CASE
-      WHEN COALESCE(tt.recent_txns, 0) > COALESCE(tt.prior_txns, 1) * 1.1 THEN 'INCREASING'
-      WHEN COALESCE(tt.recent_txns, 0) BETWEEN COALESCE(tt.prior_txns, 1) * 0.9 AND COALESCE(tt.prior_txns, 1) * 1.1 THEN 'STABLE'
-      WHEN COALESCE(tt.recent_txns, 0) BETWEEN COALESCE(tt.prior_txns, 1) * 0.5 AND COALESCE(tt.prior_txns, 1) * 0.9 THEN 'DECLINING'
-      WHEN COALESCE(tt.recent_txns, 0) < COALESCE(tt.prior_txns, 1) * 0.5 THEN 'SEVERELY_DECLINING'
-      ELSE 'STABLE'
-    END AS transaction_trend,
-    
-    -- Balance trend derivation
-    CASE WHEN m.total_relationship_balance > 1000 THEN 'STABLE' ELSE 'DECLINING' END AS balance_trend,
-    
-    -- Digital engagement metrics
-    COALESCE(d.mobile_app_active, FALSE) AS mobile_app_active,
-    COALESCE(d.login_count_30d, 0) AS login_count_30d,
-    
-    -- Digital engagement score derivation
+    -- Digital engagement score
     LEAST(100, 
       COALESCE(d.login_count_30d, 0) * 2 +
       CASE WHEN d.mobile_app_active THEN 20 ELSE 0 END +
-      CASE WHEN d.online_banking_active THEN 10 ELSE 0 END +
       COALESCE(d.features_used_count, 0) * 2
-    ) AS digital_engagement_score,
+    ) as digital_engagement_score,
     
-    -- Complaint metrics
-    COALESCE(cm.open_complaints_count, 0) AS open_complaints_count,
-    COALESCE(cm.complaints_last_12m, 0) AS complaints_last_12m,
-    COALESCE(cm.open_complaints_count, 0) > 0 AS has_unresolved_complaint,
-    
-    -- Risk driver flags (derivations from contract)
-    -- declining_balance_flag: True if balance < 500 OR primary < 100
-    (m.total_relationship_balance < 500 OR m.primary_account_balance < 100) AS declining_balance_flag,
-    
-    -- reduced_activity_flag: True if recent < 70% of prior
-    (COALESCE(tt.recent_txns, 0) < COALESCE(tt.prior_txns, 1) * 0.7) AS reduced_activity_flag,
-    
-    -- low_engagement_flag: True if login_count < 3 AND mobile_app_active is false
-    (COALESCE(d.login_count_30d, 0) < 3 AND COALESCE(d.mobile_app_active, FALSE) = FALSE) AS low_engagement_flag,
-    
-    -- complaint_flag: True if open_complaints > 0 OR complaints_last_12m >= 2
-    (COALESCE(cm.open_complaints_count, 0) > 0 OR COALESCE(cm.complaints_last_12m, 0) >= 2) AS complaint_flag,
-    
-    -- dormancy_flag: True if days_since_last_transaction > 45
-    (m.days_since_last_transaction > 45) AS dormancy_flag
-    
+    -- Risk flags
+    (total_relationship_balance < 500 OR primary_account_balance < 100) as declining_balance_flag,
+    (t.recent_txns < t.prior_txns * 0.7) as reduced_activity_flag,
+    (COALESCE(d.login_count_30d, 0) < 3 AND COALESCE(d.mobile_app_active, false) = false) as low_engagement_flag,
+    (COALESCE(cm.open_complaints_count, 0) > 0 OR COALESCE(cm.complaints_last_12m, 0) >= 2) as complaint_flag,
+    (days_since_last_transaction > 45) as dormancy_flag
   FROM customer_metrics m
-  LEFT JOIN transaction_trends tt ON m.customer_id = tt.customer_id
+  LEFT JOIN transaction_trends t ON m.customer_id = t.customer_id
   LEFT JOIN digital_engagement d ON m.customer_id = d.customer_id
   LEFT JOIN complaint_metrics cm ON m.customer_id = cm.customer_id
 ),
 
--- ============================================================================
--- FINAL OUTPUT WITH CHURN RISK SCORE
--- ============================================================================
-
 final AS (
   SELECT
-    -- Customer identifiers
     customer_id,
     customer_name,
     customer_segment,
     region,
-    
-    -- Relationship attributes
     relationship_tenure_months,
     total_products_held,
     primary_account_balance,
     total_relationship_balance,
-    
-    -- Behavioral signals
     avg_monthly_transactions_3m,
     transaction_trend,
     balance_trend,
     days_since_last_transaction,
-    
-    -- Digital engagement
     mobile_app_active,
     login_count_30d,
     digital_engagement_score,
-    
-    -- Complaints
     open_complaints_count,
     complaints_last_12m,
-    has_unresolved_complaint,
+    open_complaints_count > 0 as has_unresolved_complaint,
     
-    -- Churn risk score derivation (from contract):
-    -- BASE: 20, declining_balance +20, reduced_activity +20, low_engagement +15,
-    -- complaint +15, dormancy +25, multi-product -10, long tenure -10, high engagement -10
+    -- Calculate churn risk score
     LEAST(100, GREATEST(0,
       20 + -- Base score
       CASE WHEN declining_balance_flag THEN 20 ELSE 0 END +
@@ -235,200 +170,71 @@ final AS (
       CASE WHEN low_engagement_flag THEN 15 ELSE 0 END +
       CASE WHEN complaint_flag THEN 15 ELSE 0 END +
       CASE WHEN dormancy_flag THEN 25 ELSE 0 END -
-      -- Protective factors
       CASE WHEN total_products_held >= 3 THEN 10 ELSE 0 END -
       CASE WHEN relationship_tenure_months > 60 THEN 10 ELSE 0 END -
       CASE WHEN digital_engagement_score > 70 THEN 10 ELSE 0 END +
-      -- Segment adjustment
       CASE WHEN customer_segment = 'MASS_MARKET' THEN 5
            WHEN customer_segment = 'HIGH_NET_WORTH' THEN -5
            ELSE 0 END
-    )) AS churn_risk_score,
+    )) as churn_risk_score,
     
-    -- Risk tier derivation: LOW 0-25, MEDIUM 26-50, HIGH 51-75, CRITICAL 76-100
+    -- Derive risk tier
     CASE 
-      WHEN LEAST(100, GREATEST(0,
-        20 + CASE WHEN declining_balance_flag THEN 20 ELSE 0 END +
-        CASE WHEN reduced_activity_flag THEN 20 ELSE 0 END +
-        CASE WHEN low_engagement_flag THEN 15 ELSE 0 END +
-        CASE WHEN complaint_flag THEN 15 ELSE 0 END +
-        CASE WHEN dormancy_flag THEN 25 ELSE 0 END -
-        CASE WHEN total_products_held >= 3 THEN 10 ELSE 0 END -
-        CASE WHEN relationship_tenure_months > 60 THEN 10 ELSE 0 END -
-        CASE WHEN digital_engagement_score > 70 THEN 10 ELSE 0 END +
-        CASE WHEN customer_segment = 'MASS_MARKET' THEN 5
-             WHEN customer_segment = 'HIGH_NET_WORTH' THEN -5 ELSE 0 END
-      )) <= 25 THEN 'LOW'
-      WHEN LEAST(100, GREATEST(0,
-        20 + CASE WHEN declining_balance_flag THEN 20 ELSE 0 END +
-        CASE WHEN reduced_activity_flag THEN 20 ELSE 0 END +
-        CASE WHEN low_engagement_flag THEN 15 ELSE 0 END +
-        CASE WHEN complaint_flag THEN 15 ELSE 0 END +
-        CASE WHEN dormancy_flag THEN 25 ELSE 0 END -
-        CASE WHEN total_products_held >= 3 THEN 10 ELSE 0 END -
-        CASE WHEN relationship_tenure_months > 60 THEN 10 ELSE 0 END -
-        CASE WHEN digital_engagement_score > 70 THEN 10 ELSE 0 END +
-        CASE WHEN customer_segment = 'MASS_MARKET' THEN 5
-             WHEN customer_segment = 'HIGH_NET_WORTH' THEN -5 ELSE 0 END
-      )) <= 50 THEN 'MEDIUM'
-      WHEN LEAST(100, GREATEST(0,
-        20 + CASE WHEN declining_balance_flag THEN 20 ELSE 0 END +
-        CASE WHEN reduced_activity_flag THEN 20 ELSE 0 END +
-        CASE WHEN low_engagement_flag THEN 15 ELSE 0 END +
-        CASE WHEN complaint_flag THEN 15 ELSE 0 END +
-        CASE WHEN dormancy_flag THEN 25 ELSE 0 END -
-        CASE WHEN total_products_held >= 3 THEN 10 ELSE 0 END -
-        CASE WHEN relationship_tenure_months > 60 THEN 10 ELSE 0 END -
-        CASE WHEN digital_engagement_score > 70 THEN 10 ELSE 0 END +
-        CASE WHEN customer_segment = 'MASS_MARKET' THEN 5
-             WHEN customer_segment = 'HIGH_NET_WORTH' THEN -5 ELSE 0 END
-      )) <= 75 THEN 'HIGH'
+      WHEN churn_risk_score <= 25 THEN 'LOW'
+      WHEN churn_risk_score <= 50 THEN 'MEDIUM'
+      WHEN churn_risk_score <= 75 THEN 'HIGH'
       ELSE 'CRITICAL'
-    END AS risk_tier,
+    END as risk_tier,
     
-    -- Risk driver flags
     declining_balance_flag,
     reduced_activity_flag,
     low_engagement_flag,
     complaint_flag,
     dormancy_flag,
     
-    -- Primary risk driver derivation (priority order from contract)
+    -- Determine primary risk driver
     CASE
       WHEN dormancy_flag AND days_since_last_transaction > 60 THEN 'DORMANCY'
       WHEN declining_balance_flag AND primary_account_balance < 100 THEN 'BALANCE_DECLINE'
       WHEN reduced_activity_flag THEN 'ACTIVITY_REDUCTION'
       WHEN complaint_flag AND open_complaints_count > 0 THEN 'COMPLAINTS'
       WHEN low_engagement_flag THEN 'LOW_ENGAGEMENT'
-      WHEN (20 + CASE WHEN declining_balance_flag THEN 20 ELSE 0 END +
-            CASE WHEN reduced_activity_flag THEN 20 ELSE 0 END +
-            CASE WHEN low_engagement_flag THEN 15 ELSE 0 END +
-            CASE WHEN complaint_flag THEN 15 ELSE 0 END +
-            CASE WHEN dormancy_flag THEN 25 ELSE 0 END) > 50 THEN 'MULTI_FACTOR'
+      WHEN churn_risk_score > 50 THEN 'MULTI_FACTOR'
       ELSE 'NONE'
-    END AS primary_risk_driver,
+    END as primary_risk_driver,
     
-    -- Risk drivers JSON
+    -- Build risk drivers JSON
     OBJECT_CONSTRUCT(
       'declining_balance', OBJECT_CONSTRUCT('flag', declining_balance_flag, 'balance', total_relationship_balance),
       'reduced_activity', OBJECT_CONSTRUCT('flag', reduced_activity_flag, 'trend', transaction_trend),
       'low_engagement', OBJECT_CONSTRUCT('flag', low_engagement_flag, 'score', digital_engagement_score),
       'complaints', OBJECT_CONSTRUCT('flag', complaint_flag, 'open_count', open_complaints_count, 'total_12m', complaints_last_12m),
       'dormancy', OBJECT_CONSTRUCT('flag', dormancy_flag, 'days_inactive', days_since_last_transaction)
-    )::STRING AS risk_drivers_json,
+    )::STRING as risk_drivers_json,
     
-    -- Recommended intervention derivation
+    -- Determine recommended intervention
     CASE
-      WHEN LEAST(100, GREATEST(0,
-        20 + CASE WHEN declining_balance_flag THEN 20 ELSE 0 END +
-        CASE WHEN reduced_activity_flag THEN 20 ELSE 0 END +
-        CASE WHEN low_engagement_flag THEN 15 ELSE 0 END +
-        CASE WHEN complaint_flag THEN 15 ELSE 0 END +
-        CASE WHEN dormancy_flag THEN 25 ELSE 0 END -
-        CASE WHEN total_products_held >= 3 THEN 10 ELSE 0 END -
-        CASE WHEN relationship_tenure_months > 60 THEN 10 ELSE 0 END -
-        CASE WHEN digital_engagement_score > 70 THEN 10 ELSE 0 END +
-        CASE WHEN customer_segment = 'MASS_MARKET' THEN 5
-             WHEN customer_segment = 'HIGH_NET_WORTH' THEN -5 ELSE 0 END
-      )) > 75 THEN 'URGENT_ESCALATION'
-      WHEN LEAST(100, GREATEST(0,
-        20 + CASE WHEN declining_balance_flag THEN 20 ELSE 0 END +
-        CASE WHEN reduced_activity_flag THEN 20 ELSE 0 END +
-        CASE WHEN low_engagement_flag THEN 15 ELSE 0 END +
-        CASE WHEN complaint_flag THEN 15 ELSE 0 END +
-        CASE WHEN dormancy_flag THEN 25 ELSE 0 END -
-        CASE WHEN total_products_held >= 3 THEN 10 ELSE 0 END -
-        CASE WHEN relationship_tenure_months > 60 THEN 10 ELSE 0 END -
-        CASE WHEN digital_engagement_score > 70 THEN 10 ELSE 0 END +
-        CASE WHEN customer_segment = 'MASS_MARKET' THEN 5
-             WHEN customer_segment = 'HIGH_NET_WORTH' THEN -5 ELSE 0 END
-      )) > 50 AND complaint_flag THEN 'RELATIONSHIP_CALL'
-      WHEN LEAST(100, GREATEST(0,
-        20 + CASE WHEN declining_balance_flag THEN 20 ELSE 0 END +
-        CASE WHEN reduced_activity_flag THEN 20 ELSE 0 END +
-        CASE WHEN low_engagement_flag THEN 15 ELSE 0 END +
-        CASE WHEN complaint_flag THEN 15 ELSE 0 END +
-        CASE WHEN dormancy_flag THEN 25 ELSE 0 END -
-        CASE WHEN total_products_held >= 3 THEN 10 ELSE 0 END -
-        CASE WHEN relationship_tenure_months > 60 THEN 10 ELSE 0 END -
-        CASE WHEN digital_engagement_score > 70 THEN 10 ELSE 0 END +
-        CASE WHEN customer_segment = 'MASS_MARKET' THEN 5
-             WHEN customer_segment = 'HIGH_NET_WORTH' THEN -5 ELSE 0 END
-      )) > 50 THEN 'RETENTION_OFFER'
-      WHEN LEAST(100, GREATEST(0,
-        20 + CASE WHEN declining_balance_flag THEN 20 ELSE 0 END +
-        CASE WHEN reduced_activity_flag THEN 20 ELSE 0 END +
-        CASE WHEN low_engagement_flag THEN 15 ELSE 0 END +
-        CASE WHEN complaint_flag THEN 15 ELSE 0 END +
-        CASE WHEN dormancy_flag THEN 25 ELSE 0 END -
-        CASE WHEN total_products_held >= 3 THEN 10 ELSE 0 END -
-        CASE WHEN relationship_tenure_months > 60 THEN 10 ELSE 0 END -
-        CASE WHEN digital_engagement_score > 70 THEN 10 ELSE 0 END +
-        CASE WHEN customer_segment = 'MASS_MARKET' THEN 5
-             WHEN customer_segment = 'HIGH_NET_WORTH' THEN -5 ELSE 0 END
-      )) > 25 AND low_engagement_flag THEN 'DIGITAL_ENGAGEMENT'
-      WHEN LEAST(100, GREATEST(0,
-        20 + CASE WHEN declining_balance_flag THEN 20 ELSE 0 END +
-        CASE WHEN reduced_activity_flag THEN 20 ELSE 0 END +
-        CASE WHEN low_engagement_flag THEN 15 ELSE 0 END +
-        CASE WHEN complaint_flag THEN 15 ELSE 0 END +
-        CASE WHEN dormancy_flag THEN 25 ELSE 0 END -
-        CASE WHEN total_products_held >= 3 THEN 10 ELSE 0 END -
-        CASE WHEN relationship_tenure_months > 60 THEN 10 ELSE 0 END -
-        CASE WHEN digital_engagement_score > 70 THEN 10 ELSE 0 END +
-        CASE WHEN customer_segment = 'MASS_MARKET' THEN 5
-             WHEN customer_segment = 'HIGH_NET_WORTH' THEN -5 ELSE 0 END
-      )) > 25 THEN 'BRANCH_MEETING'
+      WHEN churn_risk_score > 75 THEN 'URGENT_ESCALATION'
+      WHEN churn_risk_score > 50 AND complaint_flag THEN 'RELATIONSHIP_CALL'
+      WHEN churn_risk_score > 50 THEN 'RETENTION_OFFER'
+      WHEN churn_risk_score > 25 AND low_engagement_flag THEN 'DIGITAL_ENGAGEMENT'
+      WHEN churn_risk_score > 25 THEN 'BRANCH_MEETING'
       ELSE 'NO_ACTION'
-    END AS recommended_intervention,
+    END as recommended_intervention,
     
-    -- Intervention priority derivation
+    -- Set intervention priority
     CASE
-      WHEN LEAST(100, GREATEST(0,
-        20 + CASE WHEN declining_balance_flag THEN 20 ELSE 0 END +
-        CASE WHEN reduced_activity_flag THEN 20 ELSE 0 END +
-        CASE WHEN low_engagement_flag THEN 15 ELSE 0 END +
-        CASE WHEN complaint_flag THEN 15 ELSE 0 END +
-        CASE WHEN dormancy_flag THEN 25 ELSE 0 END -
-        CASE WHEN total_products_held >= 3 THEN 10 ELSE 0 END -
-        CASE WHEN relationship_tenure_months > 60 THEN 10 ELSE 0 END -
-        CASE WHEN digital_engagement_score > 70 THEN 10 ELSE 0 END +
-        CASE WHEN customer_segment = 'MASS_MARKET' THEN 5
-             WHEN customer_segment = 'HIGH_NET_WORTH' THEN -5 ELSE 0 END
-      )) > 75 THEN 1
-      WHEN LEAST(100, GREATEST(0,
-        20 + CASE WHEN declining_balance_flag THEN 20 ELSE 0 END +
-        CASE WHEN reduced_activity_flag THEN 20 ELSE 0 END +
-        CASE WHEN low_engagement_flag THEN 15 ELSE 0 END +
-        CASE WHEN complaint_flag THEN 15 ELSE 0 END +
-        CASE WHEN dormancy_flag THEN 25 ELSE 0 END -
-        CASE WHEN total_products_held >= 3 THEN 10 ELSE 0 END -
-        CASE WHEN relationship_tenure_months > 60 THEN 10 ELSE 0 END -
-        CASE WHEN digital_engagement_score > 70 THEN 10 ELSE 0 END +
-        CASE WHEN customer_segment = 'MASS_MARKET' THEN 5
-             WHEN customer_segment = 'HIGH_NET_WORTH' THEN -5 ELSE 0 END
-      )) > 50 THEN 2
-      WHEN LEAST(100, GREATEST(0,
-        20 + CASE WHEN declining_balance_flag THEN 20 ELSE 0 END +
-        CASE WHEN reduced_activity_flag THEN 20 ELSE 0 END +
-        CASE WHEN low_engagement_flag THEN 15 ELSE 0 END +
-        CASE WHEN complaint_flag THEN 15 ELSE 0 END +
-        CASE WHEN dormancy_flag THEN 25 ELSE 0 END -
-        CASE WHEN total_products_held >= 3 THEN 10 ELSE 0 END -
-        CASE WHEN relationship_tenure_months > 60 THEN 10 ELSE 0 END -
-        CASE WHEN digital_engagement_score > 70 THEN 10 ELSE 0 END +
-        CASE WHEN customer_segment = 'MASS_MARKET' THEN 5
-             WHEN customer_segment = 'HIGH_NET_WORTH' THEN -5 ELSE 0 END
-      )) > 25 THEN 3
+      WHEN churn_risk_score > 75 THEN 1
+      WHEN churn_risk_score > 50 THEN 2
+      WHEN churn_risk_score > 25 THEN 3
       ELSE 4
-    END AS intervention_priority,
+    END as intervention_priority,
     
-    -- Metadata
-    CURRENT_TIMESTAMP() AS score_calculated_at,
-    CURRENT_DATE() AS data_as_of_date,
-    '1.0.0' AS model_version
+    CURRENT_TIMESTAMP() as score_calculated_at,
+    CURRENT_DATE() as data_as_of_date,
+    '1.0.0' as model_version
     
-  FROM risk_calculations
+  FROM risk_flags
 )
 
 SELECT * FROM final
