@@ -13,7 +13,7 @@ This folder contains **validated outputs** from the dbt Code Generator Streamlit
                │
                ▼
 ┌─────────────────────────────┐
-│  02_dbt_generator_app.py    │
+│  01_dbt_generator_app.py    │
 │  (Streamlit in Snowflake)   │
 │  - Parses contract YAML     │
 │  - Uses Cortex LLM          │
@@ -22,7 +22,7 @@ This folder contains **validated outputs** from the dbt Code Generator Streamlit
                │
                ▼
 ┌─────────────────────────────┐
-│  03_generated_output/       │
+│  02_generated_output/       │
 │         (OUTPUT)            │
 │  - model SQL                │
 │  - schema.yml               │
