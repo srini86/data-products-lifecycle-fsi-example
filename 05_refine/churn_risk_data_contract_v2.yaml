@@ -1,0 +1,742 @@
+# ============================================================================
+# DATA CONTRACT: Retail Customer Churn Risk - VERSION 2.0.0
+# ============================================================================
+# EVOLVED from v1.0.0 with new features based on 6 months of operational feedback:
+# - Product downgrade tracking
+# - Customer Lifetime Value (CLV) prioritization
+# - Action confidence scoring
+# - FCA Consumer Duty vulnerability indicator
+#
+# USAGE: Paste this contract into the Streamlit dbt Generator app to produce
+# updated transformation SQL, masking policies, and schema files.
+#
+# BACKWARD COMPATIBLE: Yes - all v1.0 columns preserved
+# ============================================================================
+
+apiVersion: v1
+kind: DataContract
+metadata:
+  name: retail-customer-churn-risk
+  version: "2.0.0"
+  namespace: retail_banking
+  labels:
+    domain: retail_banking
+    criticality: high
+    environment: production
+    data_classification: confidential
+  annotations:
+    created_by: "sarah.mitchell@bank.com"
+    last_updated: "2024-07-15T10:00:00Z"
+    business_purpose: "Predict and explain customer churn risk with CLV prioritization"
+    canvas_reference: "01_discover/data_product_canvas.yaml"
+    previous_version: "1.0.0"
+    backward_compatible: true
+
+  # ==========================================================================
+  # CHANGELOG - What's new in v2.0.0
+  # ==========================================================================
+  changelog:
+    - version: "2.0.0"
+      date: "2024-07-15"
+      author: "sarah.mitchell@bank.com"
+      type: "feature"
+      breaking_change: false
+      changes:
+        - "Added product_downgrade_flag - customers reducing product holdings"
+        - "Added products_held_90d_ago - historical product count"
+        - "Added estimated_clv - customer lifetime value estimate"
+        - "Added clv_tier - value-based customer classification"
+        - "Added action_confidence_score - model confidence in recommendations"
+        - "Added vulnerability_indicator - FCA Consumer Duty compliance"
+      reason: |
+        Business feedback after 6 months of operation:
+        1. Retention team needs product downgrade as early warning signal
+        2. Branch managers need CLV for prioritization decisions
+        3. Model confidence helps identify cases needing human review
+        4. FCA Consumer Duty requires vulnerability identification
+    - version: "1.0.0"
+      date: "2024-01-15"
+      author: "sarah.mitchell@bank.com"
+      type: "initial"
+      changes:
+        - "Initial release with 32 columns"
+        - "Core churn risk scoring model"
+        - "5 risk driver flags"
+
+spec:
+  # ==========================================================================
+  # BASIC INFORMATION
+  # ==========================================================================
+  info:
+    title: "Retail Customer Churn Risk Data Product"
+    description: |
+      A governed, daily-refreshed data product providing unified churn risk 
+      scores for retail banking customers. Version 2.0 adds Customer Lifetime 
+      Value (CLV) for prioritization, product downgrade signals, and FCA 
+      Consumer Duty vulnerability indicators.
+      
+      Key enhancements in v2.0:
+      - CLV-based prioritization for retention efforts
+      - Product downgrade early warning signal
+      - Action confidence scoring for RM escalation
+      - Regulatory compliance with vulnerability flags
+    owner:
+      name: "Sarah Mitchell"
+      email: "sarah.mitchell@bank.com"
+      team: "Retail Customer Analytics"
+      slack: "#retail-analytics"
+    contact:
+      support_email: "retail-data-support@bank.com"
+      documentation_url: "https://docs.bank.com/data-products/churn-risk/v2"
+      runbook_url: "https://runbooks.bank.com/churn-risk-product"
+
+  # ==========================================================================
+  # DATA SOURCE INFORMATION
+  # ==========================================================================
+  source:
+    system: "Snowflake Data Platform"
+    location: "RETAIL_BANKING_DB.RAW"
+    format: "snowflake_table"
+    update_frequency: "daily"
+    update_schedule: "0 4 * * *"
+    timezone: "UTC"
+    upstream_tables:
+      - name: "CUSTOMERS"
+        location: "RETAIL_BANKING_DB.RAW.CUSTOMERS"
+        description: "Core customer demographics and profile"
+        key_columns: ["customer_id", "customer_name", "customer_segment", "region", "onboarding_date"]
+        filter: "kyc_status = 'VERIFIED'"
+      - name: "ACCOUNTS"
+        location: "RETAIL_BANKING_DB.RAW.ACCOUNTS"
+        description: "Customer accounts and products"
+        key_columns: ["account_id", "customer_id", "account_type", "current_balance"]
+        filter: "account_status = 'ACTIVE'"
+      - name: "TRANSACTIONS"
+        location: "RETAIL_BANKING_DB.RAW.TRANSACTIONS"
+        description: "Account transaction history"
+        key_columns: ["txn_id", "account_id", "txn_date", "amount", "channel"]
+        filter: "Last 6 months of transactions"
+      - name: "DIGITAL_ENGAGEMENT"
+        location: "RETAIL_BANKING_DB.RAW.DIGITAL_ENGAGEMENT"
+        description: "Mobile app and online banking activity"
+        key_columns: ["customer_id", "login_count_30d", "mobile_app_active", "features_used_count"]
+        filter: "Latest measurement date only"
+      - name: "COMPLAINTS"
+        location: "RETAIL_BANKING_DB.RAW.COMPLAINTS"
+        description: "Customer complaints and service issues"
+        key_columns: ["complaint_id", "customer_id", "status", "severity"]
+        filter: "Last 12 months of complaints"
+      # NEW in v2.0: Product history for downgrade detection
+      - name: "PRODUCT_HISTORY"
+        location: "RETAIL_BANKING_DB.RAW.PRODUCT_SNAPSHOTS"
+        description: "Historical product holdings snapshots"
+        key_columns: ["customer_id", "snapshot_date", "product_count"]
+        filter: "Snapshot from 90 days ago"
+        added_in_version: "2.0.0"
+
+  # ==========================================================================
+  # DESTINATION INFORMATION
+  # ==========================================================================
+  destination:
+    database: "RETAIL_BANKING_DB"
+    schema: "DATA_PRODUCTS"
+    table: "RETAIL_CUSTOMER_CHURN_RISK"
+    materialization: "table"
+
+  # ==========================================================================
+  # TARGET SCHEMA DEFINITION
+  # ==========================================================================
+  schema:
+    target_table: "RETAIL_CUSTOMER_CHURN_RISK"
+    
+    properties:
+      # ======================================================================
+      # CUSTOMER IDENTIFICATION (unchanged from v1.0)
+      # ======================================================================
+      - name: customer_id
+        type: VARCHAR(50)
+        description: "Unique identifier for the retail customer"
+        nullable: false
+        pii: false
+        tags: ["identifier", "customer", "business_key"]
+        constraints:
+          - type: primary_key
+          - type: unique
+        derivation: |
+          Direct from CUSTOMERS.customer_id where kyc_status = 'VERIFIED'
+
+      - name: customer_name
+        type: VARCHAR(200)
+        description: "Full name of the customer"
+        nullable: false
+        pii: true
+        tags: ["pii", "customer", "name"]
+        masking_policy: customer_name_mask
+        derivation: |
+          Direct from CUSTOMERS.customer_name
+
+      - name: customer_segment
+        type: VARCHAR(50)
+        description: "Customer segment classification"
+        nullable: false
+        pii: false
+        tags: ["customer", "segment", "classification"]
+        allowed_values: ["MASS_MARKET", "MASS_AFFLUENT", "AFFLUENT", "HIGH_NET_WORTH"]
+        derivation: |
+          Direct from CUSTOMERS.customer_segment
+
+      - name: region
+        type: VARCHAR(100)
+        description: "Geographic region of the customer"
+        nullable: false
+        pii: false
+        tags: ["customer", "geography"]
+        derivation: |
+          Direct from CUSTOMERS.region
+
+      # ======================================================================
+      # RELATIONSHIP METRICS (unchanged from v1.0)
+      # ======================================================================
+      - name: relationship_tenure_months
+        type: INTEGER
+        description: "Number of months since customer onboarding"
+        nullable: false
+        pii: false
+        tags: ["customer", "tenure", "relationship"]
+        derivation: |
+          DATEDIFF(month, CUSTOMERS.onboarding_date, CURRENT_DATE())
+
+      - name: total_products_held
+        type: INTEGER
+        description: "Count of active products held by customer"
+        nullable: false
+        pii: false
+        tags: ["customer", "products", "relationship"]
+        derivation: |
+          COUNT(DISTINCT ACCOUNTS.account_id) where account_status = 'ACTIVE'
+
+      - name: primary_account_balance
+        type: NUMBER(15,2)
+        description: "Balance of primary current account in GBP"
+        nullable: false
+        pii: false
+        tags: ["financial", "balance", "account"]
+        derivation: |
+          MAX(ACCOUNTS.current_balance) WHERE account_type = 'CURRENT_ACCOUNT'
+
+      - name: total_relationship_balance
+        type: NUMBER(15,2)
+        description: "Sum of all account balances in GBP"
+        nullable: false
+        pii: false
+        tags: ["financial", "balance", "relationship"]
+        derivation: |
+          SUM(ACCOUNTS.current_balance) across all active accounts
+
+      # ======================================================================
+      # BEHAVIORAL METRICS (unchanged from v1.0)
+      # ======================================================================
+      - name: avg_monthly_transactions_3m
+        type: NUMBER(10,2)
+        description: "Average monthly transaction count over last 3 months"
+        nullable: false
+        pii: false
+        tags: ["behavioral", "transactions", "activity"]
+        derivation: |
+          COUNT(TRANSACTIONS) in last 3 months / 3
+
+      - name: transaction_trend
+        type: VARCHAR(20)
+        description: "Transaction volume trend direction"
+        nullable: false
+        pii: false
+        tags: ["behavioral", "trend", "indicator"]
+        allowed_values: ["INCREASING", "STABLE", "DECLINING", "SEVERELY_DECLINING"]
+        derivation: |
+          Compare transaction count: last 3 months vs prior 3 months
+          INCREASING: current > prior * 1.1
+          STABLE: current between prior * 0.9 and prior * 1.1
+          DECLINING: current between prior * 0.5 and prior * 0.9
+          SEVERELY_DECLINING: current < prior * 0.5
+
+      - name: balance_trend
+        type: VARCHAR(20)
+        description: "Account balance trend direction"
+        nullable: false
+        pii: false
+        tags: ["behavioral", "trend", "indicator"]
+        allowed_values: ["GROWING", "STABLE", "DECLINING"]
+        derivation: |
+          Based on total_relationship_balance changes over 90 days
+          GROWING: increased > 10%
+          DECLINING: decreased > 10%
+          STABLE: otherwise
+
+      - name: days_since_last_transaction
+        type: INTEGER
+        description: "Days since the last account transaction"
+        nullable: false
+        pii: false
+        tags: ["behavioral", "dormancy", "activity"]
+        derivation: |
+          DATEDIFF(day, MAX(TRANSACTIONS.txn_date), CURRENT_DATE())
+
+      # ======================================================================
+      # DIGITAL ENGAGEMENT (unchanged from v1.0)
+      # ======================================================================
+      - name: mobile_app_active
+        type: BOOLEAN
+        description: "Whether customer has used mobile app in last 30 days"
+        nullable: false
+        pii: false
+        tags: ["digital", "engagement", "mobile"]
+        derivation: |
+          Direct from DIGITAL_ENGAGEMENT.mobile_app_active (latest record)
+
+      - name: login_count_30d
+        type: INTEGER
+        description: "Number of digital banking logins in last 30 days"
+        nullable: false
+        pii: false
+        tags: ["digital", "engagement", "activity"]
+        derivation: |
+          Direct from DIGITAL_ENGAGEMENT.login_count_30d (latest record)
+
+      - name: digital_engagement_score
+        type: INTEGER
+        description: "Composite digital engagement score (0-100)"
+        nullable: false
+        pii: false
+        tags: ["digital", "engagement", "score"]
+        derivation: |
+          Calculated score combining:
+          - login_count_30d * 2 (capped contribution)
+          - mobile_app_active: +20 if true
+          - online_banking_active: +20 if true
+          - features_used_count * 2
+          Total capped at 100
+
+      # ======================================================================
+      # COMPLAINT METRICS (unchanged from v1.0)
+      # ======================================================================
+      - name: open_complaints_count
+        type: INTEGER
+        description: "Number of currently open complaints"
+        nullable: false
+        pii: false
+        tags: ["service", "complaints", "risk_factor"]
+        derivation: |
+          COUNT(COMPLAINTS) WHERE status = 'OPEN'
+
+      - name: complaints_last_12m
+        type: INTEGER
+        description: "Total complaints filed in last 12 months"
+        nullable: false
+        pii: false
+        tags: ["service", "complaints", "history"]
+        derivation: |
+          COUNT(COMPLAINTS) WHERE complaint_date >= DATEADD(month, -12, CURRENT_DATE())
+
+      - name: has_unresolved_complaint
+        type: BOOLEAN
+        description: "Flag indicating unresolved complaint exists"
+        nullable: false
+        pii: false
+        tags: ["service", "complaints", "risk_flag"]
+        derivation: |
+          open_complaints_count > 0
+
+      # ======================================================================
+      # CHURN RISK OUTPUTS (unchanged from v1.0)
+      # ======================================================================
+      - name: churn_risk_score
+        type: INTEGER
+        description: "Calculated churn risk score (0-100, higher = more risk)"
+        nullable: false
+        pii: false
+        tags: ["output", "risk_score", "churn", "primary"]
+        constraints:
+          - type: check
+            expression: "churn_risk_score >= 0 AND churn_risk_score <= 100"
+        derivation: |
+          Weighted scoring model:
+          Base: 20 points
+          + declining_balance_flag: +20
+          + reduced_activity_flag: +20
+          + low_engagement_flag: +15
+          + complaint_flag: +15
+          + dormancy_flag: +25
+          - total_products_held >= 3: -10
+          - relationship_tenure_months > 60: -10
+          - digital_engagement_score > 70: -10
+          + customer_segment adjustments
+          Capped between 0 and 100
+
+      - name: risk_tier
+        type: VARCHAR(20)
+        description: "Risk categorization based on score thresholds"
+        nullable: false
+        pii: false
+        tags: ["output", "risk_tier", "churn", "classification"]
+        allowed_values: ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        derivation: |
+          LOW: churn_risk_score <= 25
+          MEDIUM: churn_risk_score 26-50
+          HIGH: churn_risk_score 51-75
+          CRITICAL: churn_risk_score > 75
+
+      # ======================================================================
+      # RISK DRIVER FLAGS (unchanged from v1.0)
+      # ======================================================================
+      - name: declining_balance_flag
+        type: BOOLEAN
+        description: "Significant balance decline detected"
+        nullable: false
+        pii: false
+        tags: ["risk_driver", "explainability", "balance"]
+        derivation: |
+          TRUE if total_relationship_balance < 500 OR primary_account_balance < 100
+
+      - name: reduced_activity_flag
+        type: BOOLEAN
+        description: "Reduced transaction activity detected"
+        nullable: false
+        pii: false
+        tags: ["risk_driver", "explainability", "activity"]
+        derivation: |
+          TRUE if transaction_trend IN ('DECLINING', 'SEVERELY_DECLINING')
+          OR recent_3m_txns < prior_3m_txns * 0.7
+
+      - name: low_engagement_flag
+        type: BOOLEAN
+        description: "Low digital engagement detected"
+        nullable: false
+        pii: false
+        tags: ["risk_driver", "explainability", "engagement"]
+        derivation: |
+          TRUE if login_count_30d < 3 AND mobile_app_active = FALSE
+
+      - name: complaint_flag
+        type: BOOLEAN
+        description: "Recent or unresolved complaint exists"
+        nullable: false
+        pii: false
+        tags: ["risk_driver", "explainability", "complaints"]
+        derivation: |
+          TRUE if open_complaints_count > 0 OR complaints_last_12m >= 2
+
+      - name: dormancy_flag
+        type: BOOLEAN
+        description: "Account showing dormancy signals"
+        nullable: false
+        pii: false
+        tags: ["risk_driver", "explainability", "dormancy"]
+        derivation: |
+          TRUE if days_since_last_transaction > 45
+
+      # ======================================================================
+      # INTERVENTION OUTPUTS (unchanged from v1.0)
+      # ======================================================================
+      - name: primary_risk_driver
+        type: VARCHAR(50)
+        description: "The most significant factor contributing to churn risk"
+        nullable: false
+        pii: false
+        tags: ["output", "explainability", "primary_driver"]
+        allowed_values: ["DORMANCY", "BALANCE_DECLINE", "ACTIVITY_REDUCTION", "COMPLAINTS", "LOW_ENGAGEMENT", "MULTI_FACTOR", "NONE"]
+        derivation: |
+          Priority order based on impact:
+          1. DORMANCY (if dormancy_flag AND days > 60)
+          2. BALANCE_DECLINE (if declining_balance_flag AND balance < 100)
+          3. ACTIVITY_REDUCTION (if reduced_activity_flag)
+          4. COMPLAINTS (if complaint_flag AND open > 0)
+          5. LOW_ENGAGEMENT (if low_engagement_flag)
+          6. MULTI_FACTOR (if score > 50 with multiple flags)
+          7. NONE (otherwise)
+
+      - name: risk_drivers_json
+        type: VARIANT
+        description: "JSON object of all contributing risk factors with details"
+        nullable: false
+        pii: false
+        tags: ["output", "explainability", "drivers_detail"]
+        derivation: |
+          OBJECT_CONSTRUCT with all flag values and supporting metrics
+
+      - name: recommended_intervention
+        type: VARCHAR(50)
+        description: "Suggested retention intervention based on risk profile"
+        nullable: false
+        pii: false
+        tags: ["output", "recommendation", "action"]
+        allowed_values: ["URGENT_ESCALATION", "RELATIONSHIP_CALL", "RETENTION_OFFER", "DIGITAL_ENGAGEMENT", "BRANCH_MEETING", "NO_ACTION"]
+        derivation: |
+          Based on risk_tier and primary_risk_driver combination
+
+      - name: intervention_priority
+        type: INTEGER
+        description: "Priority ranking for intervention (1=highest)"
+        nullable: false
+        pii: false
+        tags: ["output", "priority", "action"]
+        allowed_values: [1, 2, 3, 4]
+        derivation: |
+          1: churn_risk_score > 75
+          2: churn_risk_score 51-75
+          3: churn_risk_score 26-50
+          4: churn_risk_score <= 25
+
+      # ======================================================================
+      # NEW IN v2.0: PRODUCT DOWNGRADE TRACKING
+      # ======================================================================
+      - name: products_held_90d_ago
+        type: INTEGER
+        description: "Number of products held 90 days ago for downgrade detection"
+        nullable: false
+        pii: false
+        tags: ["v2_feature", "product", "historical"]
+        added_in_version: "2.0.0"
+        derivation: |
+          From PRODUCT_HISTORY snapshot 90 days ago
+          If no history available, default to current total_products_held
+
+      - name: product_downgrade_flag
+        type: BOOLEAN
+        description: "TRUE if customer has reduced product holdings in last 90 days"
+        nullable: false
+        pii: false
+        tags: ["v2_feature", "risk_driver", "product", "early_warning"]
+        added_in_version: "2.0.0"
+        derivation: |
+          TRUE if total_products_held < products_held_90d_ago
+          This is a strong churn predictor (3x more likely to churn)
+
+      # ======================================================================
+      # NEW IN v2.0: CUSTOMER LIFETIME VALUE
+      # ======================================================================
+      - name: estimated_clv
+        type: NUMBER(15,2)
+        description: "Estimated customer lifetime value in GBP"
+        nullable: false
+        pii: false
+        tags: ["v2_feature", "financial", "clv", "prioritization"]
+        added_in_version: "2.0.0"
+        derivation: |
+          total_relationship_balance * tenure_factor * segment_factor
+          Where:
+          - tenure_factor = 1 + MIN(relationship_tenure_months, 120) / 120
+          - segment_factor: HIGH_NET_WORTH=1.5, AFFLUENT=1.3, MASS_AFFLUENT=1.1, else 1.0
+
+      - name: clv_tier
+        type: VARCHAR(20)
+        description: "CLV classification for prioritization"
+        nullable: false
+        pii: false
+        tags: ["v2_feature", "classification", "clv", "prioritization"]
+        allowed_values: ["HIGH_VALUE", "MEDIUM_VALUE", "STANDARD"]
+        added_in_version: "2.0.0"
+        derivation: |
+          HIGH_VALUE: estimated_clv >= 100,000
+          MEDIUM_VALUE: estimated_clv >= 25,000 AND < 100,000
+          STANDARD: estimated_clv < 25,000
+
+      # ======================================================================
+      # NEW IN v2.0: ACTION CONFIDENCE
+      # ======================================================================
+      - name: action_confidence_score
+        type: INTEGER
+        description: "Model confidence in recommended_intervention (0-100). Low scores suggest RM escalation"
+        nullable: false
+        pii: false
+        tags: ["v2_feature", "model", "confidence", "escalation"]
+        constraints:
+          - type: check
+            expression: "action_confidence_score >= 0 AND action_confidence_score <= 100"
+        added_in_version: "2.0.0"
+        derivation: |
+          Base: 50 points
+          + Strong risk signal (score > 70): +20
+          + Aligned signals (dormancy + balance decline): +15
+          + Aligned signals (complaint + low engagement): +10
+          - Uncertain middle (score 40-60): -20
+          - Complex case (primary_driver = MULTI_FACTOR): -15
+          Capped between 0 and 100
+          
+          Low confidence (< 50) indicates case should be reviewed by RM
+
+      # ======================================================================
+      # NEW IN v2.0: FCA CONSUMER DUTY COMPLIANCE
+      # ======================================================================
+      - name: vulnerability_indicator
+        type: BOOLEAN
+        description: "FCA Consumer Duty flag - TRUE if customer shows vulnerability signals"
+        nullable: false
+        pii: false
+        tags: ["v2_feature", "compliance", "fca", "vulnerability", "consumer_duty"]
+        added_in_version: "2.0.0"
+        derivation: |
+          TRUE if ANY of:
+          - Low engagement + complaint + financial stress:
+            (digital_engagement_score < 20 AND complaint_flag AND declining_balance_flag)
+          - Potentially digitally excluded (elderly):
+            (relationship_tenure_months > 120 AND digital_engagement_score < 10)
+          
+          Regulatory requirement under FCA Consumer Duty to identify 
+          and appropriately treat vulnerable customers
+
+      # ======================================================================
+      # METADATA (unchanged from v1.0)
+      # ======================================================================
+      - name: score_calculated_at
+        type: TIMESTAMP_NTZ
+        description: "Timestamp when churn score was calculated"
+        nullable: false
+        pii: false
+        tags: ["metadata", "audit", "timestamp"]
+        derivation: |
+          CURRENT_TIMESTAMP() at model execution time
+
+      - name: data_as_of_date
+        type: DATE
+        description: "Business date of the source data"
+        nullable: false
+        pii: false
+        tags: ["metadata", "audit", "date"]
+        derivation: |
+          CURRENT_DATE() at model execution time
+
+      - name: model_version
+        type: VARCHAR(20)
+        description: "Version of the churn risk model used"
+        nullable: false
+        pii: false
+        tags: ["metadata", "model", "version"]
+        derivation: |
+          Hardcoded '2.0.0' for this contract version
+
+  # ==========================================================================
+  # MASKING POLICIES
+  # ==========================================================================
+  masking_policies:
+    customer_name_mask:
+      description: "Mask customer name for unauthorized users"
+      column: customer_name
+      authorized_roles:
+        - RETENTION_ANALYST
+        - BRANCH_MANAGER
+        - CUSTOMER_ANALYTICS
+        - COMPLIANCE_OFFICER
+        - DATA_SCIENCE_TEAM
+      mask_behavior: |
+        Show first character + '****' for unauthorized roles
+        Example: 'John Smith' -> 'J****'
+
+  # ==========================================================================
+  # DATA QUALITY RULES
+  # ==========================================================================
+  data_quality:
+    completeness:
+      - column: customer_id
+        rule: "NOT NULL"
+        threshold: 100
+      - column: churn_risk_score
+        rule: "NOT NULL"
+        threshold: 100
+      - column: estimated_clv
+        rule: "NOT NULL"
+        threshold: 100
+        added_in_version: "2.0.0"
+
+    uniqueness:
+      - columns: [customer_id]
+        rule: "Unique across all rows"
+        threshold: 100
+
+    validity:
+      - column: risk_tier
+        rule: "IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')"
+      - column: churn_risk_score
+        rule: "BETWEEN 0 AND 100"
+      - column: clv_tier
+        rule: "IN ('HIGH_VALUE', 'MEDIUM_VALUE', 'STANDARD')"
+        added_in_version: "2.0.0"
+      - column: action_confidence_score
+        rule: "BETWEEN 0 AND 100"
+        added_in_version: "2.0.0"
+
+    business_rules:
+      - name: risk_tier_score_alignment
+        rule: "risk_tier matches churn_risk_score ranges"
+        validation: |
+          (churn_risk_score <= 25 AND risk_tier = 'LOW') OR
+          (churn_risk_score BETWEEN 26 AND 50 AND risk_tier = 'MEDIUM') OR
+          (churn_risk_score BETWEEN 51 AND 75 AND risk_tier = 'HIGH') OR
+          (churn_risk_score > 75 AND risk_tier = 'CRITICAL')
+
+      - name: clv_tier_alignment
+        rule: "clv_tier matches estimated_clv ranges"
+        added_in_version: "2.0.0"
+        validation: |
+          (estimated_clv >= 100000 AND clv_tier = 'HIGH_VALUE') OR
+          (estimated_clv >= 25000 AND estimated_clv < 100000 AND clv_tier = 'MEDIUM_VALUE') OR
+          (estimated_clv < 25000 AND clv_tier = 'STANDARD')
+
+      - name: product_downgrade_consistency
+        rule: "product_downgrade_flag is consistent with product counts"
+        added_in_version: "2.0.0"
+        validation: |
+          product_downgrade_flag = (total_products_held < products_held_90d_ago)
+
+  # ==========================================================================
+  # SLA
+  # ==========================================================================
+  sla:
+    freshness:
+      max_age_hours: 24
+      measured_by: "score_calculated_at"
+      alert_threshold_hours: 25
+    availability:
+      target_percentage: 99.5
+      measurement_window: "monthly"
+    row_count:
+      minimum: 500
+      alert_if_below: 450
+
+  # ==========================================================================
+  # ACCESS CONTROL
+  # ==========================================================================
+  access_control:
+    authorized_roles:
+      - role: RETENTION_ANALYST
+        access_level: SELECT
+        columns: ALL
+      - role: BRANCH_MANAGER
+        access_level: SELECT
+        columns: ALL
+      - role: CUSTOMER_ANALYTICS
+        access_level: SELECT
+        columns: ALL
+      - role: DATA_SCIENCE_TEAM
+        access_level: SELECT
+        columns: ALL
+      - role: COMPLIANCE_OFFICER
+        access_level: SELECT
+        columns: ALL
+        note: "Full access for FCA Consumer Duty compliance monitoring"
+
+  # ==========================================================================
+  # COMPLIANCE
+  # ==========================================================================
+  compliance:
+    regulations:
+      - name: "GDPR"
+        requirements: ["PII fields masked", "Right to erasure supported"]
+      - name: "FCA Consumer Duty"
+        requirements: 
+          - "Vulnerability identification via vulnerability_indicator"
+          - "Appropriate treatment for vulnerable customers"
+        added_in_version: "2.0.0"
+    data_retention:
+      period: "7 years"
+      reason: "FCA regulatory requirement"
+
