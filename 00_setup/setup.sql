@@ -76,24 +76,39 @@ CREATE STAGE IF NOT EXISTS streamlit_apps
 SELECT '✅ Step 2 Complete: Stages created' AS status;
 
 -- ============================================================================
--- ⚠️  MANUAL STEP REQUIRED: UPLOAD FILES TO STAGES
+-- ⚠️  MANUAL STEP: CREATE STREAMLIT APP (Choose Option A or B)
 -- ============================================================================
--- 
--- Before continuing, upload these files via Snowsight:
 --
--- 1. Go to: Data → Databases → RETAIL_BANKING_DB → GOVERNANCE → Stages
+-- ┌─────────────────────────────────────────────────────────────────────────┐
+-- │ OPTION A: Upload .py file to Stage (then run Step 5 below)              │
+-- ├─────────────────────────────────────────────────────────────────────────┤
+-- │ 1. Go to: Data → Databases → RETAIL_BANKING_DB → GOVERNANCE → Stages   │
+-- │ 2. Click "STREAMLIT_APPS" → "+ Files"                                   │
+-- │ 3. Upload: 03_deliver/01_dbt_generator_app.py                           │
+-- │ 4. Continue running this script (Step 5 creates the app from stage)    │
+-- └─────────────────────────────────────────────────────────────────────────┘
 --
--- 2. Click "STREAMLIT_APPS" → "+ Files" → Upload:
---    📁 03_deliver/01_dbt_generator_app.py
+-- ┌─────────────────────────────────────────────────────────────────────────┐
+-- │ OPTION B: Create Streamlit App directly in Snowsight (skip Step 5)     │
+-- ├─────────────────────────────────────────────────────────────────────────┤
+-- │ 1. Go to: Snowsight → Projects → Streamlit → "+ Streamlit App"         │
+-- │ 2. Name: dbt_code_generator                                             │
+-- │ 3. Database: RETAIL_BANKING_DB, Schema: GOVERNANCE                      │
+-- │ 4. Warehouse: DATA_PRODUCTS_WH                                          │
+-- │ 5. Open 03_deliver/01_dbt_generator_app.py, copy ALL the code          │
+-- │ 6. Paste into the Streamlit editor and click "Run"                      │
+-- │ 7. Skip Step 5 below - your app is already created!                     │
+-- └─────────────────────────────────────────────────────────────────────────┘
 --
--- 3. (Optional) Click "DATA_CONTRACTS" → "+ Files" → Upload:
+-- (Optional) Upload data contract to DATA_CONTRACTS stage:
 --    📁 02_design/churn_risk_data_contract.yaml
 --
 -- Then continue running the rest of this script.
 -- ============================================================================
 
-SELECT '⚠️  ACTION REQUIRED: Upload 03_deliver/01_dbt_generator_app.py to STREAMLIT_APPS stage' AS action;
-SELECT 'Go to: Data → Databases → RETAIL_BANKING_DB → GOVERNANCE → Stages → STREAMLIT_APPS → + Files' AS instructions;
+SELECT '⚠️  ACTION REQUIRED: Create Streamlit app using Option A or B above' AS action;
+SELECT 'Option A: Upload .py to stage, then run Step 5' AS option_a;
+SELECT 'Option B: Create app directly in Snowsight UI (skip Step 5)' AS option_b;
 
 
 -- ============================================================================

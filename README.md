@@ -19,12 +19,18 @@ cd data-products-lifecycle-fsi-example
 
 Open `00_setup/setup.sql` in **Snowsight** and run Steps 1-2 to create DB and stages.
 
-### Step 1b: Upload Streamlit App File
+### Step 1b: Create Streamlit App (Choose One Option)
 
+**Option A: Upload to Stage**
 1. Go to: **Data** → **Databases** → `RETAIL_BANKING_DB` → `GOVERNANCE` → **Stages**
 2. Click `STREAMLIT_APPS` → **+ Files** → Upload `03_deliver/01_dbt_generator_app.py`
+3. Run remaining steps (3-6) in `setup.sql`
 
-Then run the remaining steps (3-6) in `setup.sql`.
+**Option B: Create Directly in Snowsight** ⭐ Easier
+1. Go to: **Projects** → **Streamlit** → **+ Streamlit App**
+2. Name: `dbt_code_generator`, DB: `RETAIL_BANKING_DB`, Schema: `GOVERNANCE`
+3. Copy code from `03_deliver/01_dbt_generator_app.py` and paste into editor
+4. Click **Run** - skip Step 5 in `setup.sql`
 
 ### Step 2: Generate Code via Streamlit App
 
