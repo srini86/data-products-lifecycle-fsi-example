@@ -153,6 +153,9 @@ data-products-lifecycle-fsi-example/
 │   ├── evolution_example.sql          #   Versioning & deployment
 │   └── churn_risk_data_contract_v2.yaml  # V2 contract with new features
 │
+├── 06_cleanup/                        # CLEANUP
+│   └── cleanup.sql                    #   Remove all demo resources
+│
 ├── LICENSE
 └── README.md
 ```
