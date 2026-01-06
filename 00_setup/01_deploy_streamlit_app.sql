@@ -71,7 +71,7 @@ SELECT 'Stages created!' AS status;
 --     AUTO_COMPRESS=FALSE OVERWRITE=TRUE;
 --
 -- # Upload Streamlit app
--- PUT file://03_deliver/03b_dbt_generator_app.py 
+-- PUT file://03_deliver/02_dbt_generator_app.py 
 --     @RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps 
 --     AUTO_COMPRESS=FALSE OVERWRITE=TRUE;
 
@@ -82,7 +82,7 @@ SELECT 'Stages created!' AS status;
 -- 2. Click on "DATA_CONTRACTS" stage → "+ Files" → Upload:
 --    - 02_design/churn_risk_data_contract.yaml
 -- 3. Click on "STREAMLIT_APPS" stage → "+ Files" → Upload:
---    - 03_deliver/03b_dbt_generator_app.py
+--    - 03_deliver/02_dbt_generator_app.py
 
 -- ============================================================================
 -- STEP 4: VERIFY FILE UPLOADS

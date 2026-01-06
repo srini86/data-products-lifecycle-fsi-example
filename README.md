@@ -1,198 +1,69 @@
-# 🏦 Data Products for Financial Services on Snowflake
+# 🏦 Data Products for Financial Services
 
-[![Snowflake](https://img.shields.io/badge/Snowflake-29B5E8?style=flat&logo=snowflake&logoColor=white)](https://snowflake.com)
-[![dbt](https://img.shields.io/badge/dbt-FF694B?style=flat&logo=dbt&logoColor=white)](https://getdbt.com)
-[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=flat&logo=streamlit&logoColor=white)](https://streamlit.io)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+> A complete code sample demonstrating how to build, deliver, and operate Data Products for FSI using Snowflake.
 
-> **Production-ready code samples for building regulatory-grade data products in Financial Services**
-
-This repository accompanies the blog post *"Building Regulatory-Grade Data Products on Snowflake for FSI"* and demonstrates a complete 5-stage lifecycle for delivering governed, contract-driven data products.
+[![Snowflake](https://img.shields.io/badge/Snowflake-29B5E8?logo=snowflake&logoColor=white)](https://snowflake.com)
+[![dbt](https://img.shields.io/badge/dbt-FF694B?logo=dbt&logoColor=white)](https://getdbt.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 ---
 
-## 📋 Table of Contents
+## 📋 Overview
 
-- [Overview](#-overview)
-- [Quick Start](#-quick-start)
-- [Prerequisites](#-prerequisites)
-- [Installation](#-installation)
-- [Repository Structure](#-repository-structure)
-- [The 5-Stage Lifecycle](#-the-5-stage-lifecycle)
-- [Example: Retail Customer Churn Risk](#-example-retail-customer-churn-risk)
-- [Contract-Driven Code Generation](#-contract-driven-code-generation)
-- [Testing & Validation](#-testing--validation)
-- [Monitoring & Observability](#-monitoring--observability)
-- [Contributing](#-contributing)
-- [License](#-license)
+This repository provides a **working example** of the Retail Customer Churn Risk Data Product, following a 5-stage lifecycle:
+
+| Stage | What | Outcome |
+|-------|------|---------|
+| **Discover** | Identify business need | Data Product Canvas |
+| **Design** | Define contract & schema | Machine-readable Data Contract |
+| **Deliver** | Build & transform | dbt models, quality tests, masking |
+| **Operate** | Monitor & govern | SLA checks, alerts, usage telemetry |
+| **Refine** | Evolve & iterate | Versioning, deprecation, new products |
 
 ---
 
-## 🎯 Overview
+## 🏗️ Architecture
 
-This repository provides a **complete, working example** of delivering a data product in Financial Services, following best practices for:
-
-- ✅ **Governance** - Data contracts, masking policies, access controls
-- ✅ **Quality** - Automated testing, business rule validation
-- ✅ **Observability** - SLA monitoring, freshness checks, usage telemetry
-- ✅ **Discoverability** - Semantic views, internal marketplace listings
-- ✅ **AI-Assisted Development** - Cortex LLM generates code from English specs
-
-### Key Innovation: Contract-Driven Development
-
-Instead of writing SQL manually, define your data product in a **YAML contract** with English descriptions. The included Streamlit app uses **Snowflake Cortex** to generate production-ready code:
-
-```yaml
-# Define in English...
-churn_risk_score:
-  derivation: |
-    Calculate risk score using weighted factors:
-    - declining_balance_flag: +20 points
-    - reduced_activity_flag: +20 points
-    Cap final score between 0 and 100
 ```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           DATA PRODUCT LIFECYCLE                            │
+└─────────────────────────────────────────────────────────────────────────────┘
 
-```sql
--- AI generates SQL...
-LEAST(100, GREATEST(0,
-    20 + -- base score
-    IFF(declining_balance_flag, 20, 0) +
-    IFF(reduced_activity_flag, 20, 0) + ...
-)) AS churn_risk_score
-```
-
----
-
-## 🚀 Quick Start
-
-### Option A: Snowflake Git Integration (Recommended)
-
-Run these SQL scripts directly in Snowflake Snowsight:
-
-```sql
--- Step 1: Create Git integration and connect to this repo
--- Run: 00_setup/01_git_integration.sql
-
--- Step 2: Run all setup scripts from Git
--- Run: 00_setup/02_run_setup_from_git.sql
-
--- Step 3: (Optional) Deploy Streamlit app
--- Run: 00_setup/03_deploy_streamlit_app.sql
-```
-
-### Option B: Local Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/srini86/data-products-lifecycle-fsi-example.git
-cd data-products-lifecycle-fsi-example
-
-# Run the setup script (interactive)
-./setup.sh
-
-# Or run individual steps manually - see Installation section
-```
-
----
-
-## 📌 Prerequisites
-
-| Requirement | Details |
-|-------------|---------|
-| **Snowflake Account** | Trial or paid account with ACCOUNTADMIN access |
-| **Snowflake Warehouse** | COMPUTE_WH or equivalent (XSMALL is sufficient) |
-| **Cortex Access** | For AI-powered code generation (optional) |
-| **dbt** | Either Snowflake dbt Projects or dbt Core 1.5+ |
-| **Git** | For cloning the repository |
-
-### Optional Tools
-- **SnowSQL CLI** - For running setup scripts
-- **Python 3.9+** - For local testing of Streamlit app
-
----
-
-## 📥 Installation
-
-### Option 1: Snowflake Git Integration (Recommended)
-
-The fastest way to get started - run everything directly from Git within Snowflake:
-
-```sql
--- 1. Open Snowflake Snowsight
--- 2. Create a new worksheet
--- 3. Copy and run: 00_setup/01_git_integration.sql
--- 4. Then run: 00_setup/02_run_setup_from_git.sql
-```
-
-This creates a Git repository connection and runs all setup scripts automatically.
-
-**Benefits:**
-- No local setup required
-- Always uses latest code from Git
-- Streamlit apps deploy directly from Git
-- Easy to refresh with `ALTER GIT REPOSITORY ... FETCH`
-
-### Option 2: Local Setup Script
-
-```bash
-# Make the setup script executable
-chmod +x setup.sh
-
-# Run interactive setup
-./setup.sh
-```
-
-The script will guide you through:
-1. Creating the database and schemas
-2. Generating sample data
-3. Deploying the dbt model
-4. Setting up monitoring
-5. (Optional) Deploying the Streamlit app
-
-### Option 3: Manual Setup
-
-#### Step 1: Create Sample Data
-```sql
--- Run in Snowflake (Snowsight or SnowSQL)
--- Execute: 03_deliver/03a_create_sample_data.sql
-
--- This creates:
--- • RETAIL_BANKING_DB database
--- • RAW schema with 5 source tables
--- • ~1,000 customers, ~2,500 accounts, ~50,000 transactions
-```
-
-#### Step 2: Deploy the dbt Model
-
-**Using Snowflake dbt Projects:**
-1. Create a new dbt project in Snowflake
-2. Upload files from `03_deliver/03c_output_examples/`
-3. Run: `dbt run --select retail_customer_churn_risk`
-
-**Using dbt Core:**
-```bash
-# Copy model files to your dbt project
-cp 03_deliver/03c_output_examples/retail_customer_churn_risk.sql models/
-cp 03_deliver/03c_output_examples/schema.yml models/
-
-# Run dbt
-dbt run --select retail_customer_churn_risk
-dbt test --select retail_customer_churn_risk
-```
-
-#### Step 3: Apply Masking Policies
-```sql
--- Execute: 03_deliver/03c_output_examples/masking_policies.sql
-```
-
-#### Step 4: Create Semantic View
-```sql
--- Execute: 03_deliver/03d_semantic_view_marketplace.sql
-```
-
-#### Step 5: Set Up Monitoring
-```sql
--- Execute: 04_operate/monitoring_observability.sql
+  ┌──────────┐    ┌──────────┐    ┌──────────────────────────────────────────┐
+  │ DISCOVER │───▶│  DESIGN  │───▶│                DELIVER                   │
+  │          │    │          │    │                                          │
+  │  Canvas  │    │ Contract │    │  ┌─────────────────────────────────────┐ │
+  │  (YAML)  │    │  (YAML)  │    │  │   Streamlit App (Cortex LLM)        │ │
+  └──────────┘    └────┬─────┘    │  │   ┌───────────────────────────────┐ │ │
+                       │          │  │   │  Input: Data Contract (YAML) │ │ │
+                       │          │  │   └───────────────┬───────────────┘ │ │
+                       │          │  │                   ▼                 │ │
+                       ▼          │  │   ┌───────────────────────────────┐ │ │
+            ┌──────────────────┐  │  │   │ Output: dbt model, schema,    │ │ │
+            │ Source Tables    │  │  │   │         masking policies      │ │ │
+            │ ─────────────────│  │  │   └───────────────────────────────┘ │ │
+            │ • CUSTOMERS      │  │  └─────────────────────────────────────┘ │
+            │ • ACCOUNTS       │──┼──────────────────────────────────────────┘
+            │ • TRANSACTIONS   │  │
+            │ • DIGITAL_ENGAGE │  │    ┌─────────────────────────────────────┐
+            │ • COMPLAINTS     │  │    │  RETAIL_CUSTOMER_CHURN_RISK         │
+            └──────────────────┘  └───▶│  ─────────────────────────────────  │
+                                       │  • churn_risk_score (0-100)         │
+                                       │  • risk_tier (LOW/MED/HIGH/CRIT)    │
+                                       │  • primary_risk_driver              │
+                                       │  • recommended_intervention         │
+                                       └────────────────┬────────────────────┘
+                                                        │
+          ┌─────────────────────────────────────────────┴──────────────────────┐
+          │                                                                    │
+          ▼                                                                    ▼
+  ┌──────────────┐                                                    ┌──────────────┐
+  │   OPERATE    │                                                    │    REFINE    │
+  │              │                                                    │              │
+  │ • SLA checks │                                                    │ • Versioning │
+  │ • DQ monitor │                                                    │ • Evolution  │
+  │ • Alerts     │                                                    │ • Retirement │
+  └──────────────┘                                                    └──────────────┘
 ```
 
 ---
@@ -202,279 +73,141 @@ dbt test --select retail_customer_churn_risk
 ```
 data-products-lifecycle-fsi-example/
 │
-├── 00_setup/                             # 🚀 START HERE
-│   ├── 01_git_integration.sql            # Connect Snowflake to this Git repo
-│   ├── 02_run_setup_from_git.sql         # Run all setup scripts from Git
-│   ├── 03_deploy_streamlit_app.sql       # Deploy Streamlit app from Git
+├── 00_setup/                          # Snowflake setup
+│   ├── 01_deploy_streamlit_app.sql    #   Create DB, stages, deploy app
 │   └── README.md
 │
-├── 01_discover/
-│   └── data_product_canvas.yaml          # Business discovery canvas
+├── 01_discover/                       # DISCOVER phase
+│   └── data_product_canvas.yaml       #   Business context & stakeholders
 │
-├── 02_design/
-│   └── churn_risk_data_contract.yaml     # Machine-readable data contract
+├── 02_design/                         # DESIGN phase
+│   └── churn_risk_data_contract.yaml  #   Schema, SLAs, quality rules
 │
-├── 03_deliver/
-│   ├── 03a_create_sample_data.sql        # Sample data generation
-│   ├── 03b_dbt_generator_app.py          # Streamlit code generator
-│   ├── 03c_output_examples/              # Generated code examples
+├── 03_deliver/                        # DELIVER phase
+│   ├── 01_create_sample_data.sql      #   Generate 10K customers, 25K accounts
+│   ├── 02_dbt_generator_app.py        #   Streamlit app (Cortex-powered)
+│   ├── 03_generated_output/           #   Example outputs from the app
 │   │   ├── retail_customer_churn_risk.sql
 │   │   ├── schema.yml
 │   │   ├── masking_policies.sql
 │   │   └── business_rules_tests.sql
-│   └── 03d_semantic_view_marketplace.sql
+│   └── 04_semantic_view_marketplace.sql  # Publish to Internal Marketplace
 │
-├── 04_operate/
-│   └── monitoring_observability.sql      # Monitoring & alerts
+├── 04_operate/                        # OPERATE phase
+│   └── monitoring_observability.sql   #   SLA, DQ, alerts, telemetry
 │
-├── 05_refine/
-│   └── evolution_example.sql             # Product evolution patterns
+├── 05_refine/                         # REFINE phase
+│   └── evolution_example.sql          #   Versioning & deprecation
 │
-├── setup.sh                              # Local setup script (alternative)
+├── LICENSE
 └── README.md
 ```
 
 ---
 
-## 🔄 The 5-Stage Lifecycle
+## 🚀 Quick Start
 
-| Stage | Purpose | Deliverable | File |
-|-------|---------|-------------|------|
-| **1. Discover** | Identify business need, stakeholders | Data Product Canvas | `01_discover/data_product_canvas.yaml` |
-| **2. Design** | Codify requirements as contract | Data Contract | `02_design/churn_risk_data_contract.yaml` |
-| **3. Deliver** | Build transformation & serving | dbt Model + Semantic View | `03_deliver/` |
-| **4. Operate** | Monitor quality & adoption | Alerts & Dashboards | `04_operate/monitoring_observability.sql` |
-| **5. Refine** | Evolve based on feedback | Version Updates | `05_refine/evolution_example.sql` |
+### Prerequisites
 
----
+- Snowflake account with `ACCOUNTADMIN` role
+- Snowsight (Snowflake web UI)
 
-## 📊 Example: Retail Customer Churn Risk
-
-### Business Context
-A retail bank needs to identify customers at risk of churning to enable:
-- 🎯 Targeted retention campaigns
-- 📞 Branch manager interventions
-- 📈 Executive KPI reporting
-
-### Data Product Outputs
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `customer_id` | STRING | Unique customer identifier |
-| `churn_risk_score` | INT | Risk score 0-100 (higher = more risk) |
-| `risk_tier` | STRING | LOW, MEDIUM, HIGH, CRITICAL |
-| `primary_risk_driver` | STRING | Main contributing factor |
-| `recommended_intervention` | STRING | Suggested action |
-
-### Risk Factors
-
-The model evaluates 5 behavioral signals:
-
-| Factor | Weight | Trigger |
-|--------|--------|---------|
-| 💰 Declining Balance | +20 | Balance < £500 or primary < £100 |
-| 📉 Reduced Activity | +20 | Transaction count down >30% |
-| 📱 Low Engagement | +15 | < 3 logins, no mobile app usage |
-| 😤 Complaints | +15 | Open complaints or ≥2 in 12 months |
-| 💤 Dormancy | +25 | No transactions for >45 days |
-
-### Sample Query
+### Step 1: Setup Infrastructure
 
 ```sql
--- Find high-risk customers needing intervention
-SELECT 
-    customer_id,
-    customer_name,
-    churn_risk_score,
-    risk_tier,
-    primary_risk_driver,
-    recommended_intervention
-FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
-WHERE risk_tier IN ('HIGH', 'CRITICAL')
-ORDER BY churn_risk_score DESC
-LIMIT 50;
+-- Run in Snowsight: 00_setup/01_deploy_streamlit_app.sql (Steps 1-2)
+-- Creates: RETAIL_BANKING_DB, schemas, stages
 ```
 
----
+### Step 2: Upload Files
 
-## 🤖 Contract-Driven Code Generation
+Upload to Snowflake stages via Snowsight:
 
-### How It Works
+| File | Stage |
+|------|-------|
+| `02_design/churn_risk_data_contract.yaml` | `@GOVERNANCE.data_contracts` |
+| `03_deliver/02_dbt_generator_app.py` | `@GOVERNANCE.streamlit_apps` |
 
-```
-┌─────────────────────────────┐
-│  Data Contract (YAML)       │
-│  - Schema with derivations  │
-│  - Masking policies         │
-│  - Business rules           │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│  Streamlit App              │
-│  (03b_dbt_generator_app.py) │
-│  + Snowflake Cortex LLM     │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│  Generated Outputs          │
-│  - model.sql (dbt)          │
-│  - schema.yml               │
-│  - masking_policies.sql     │
-└─────────────────────────────┘
-```
-
-### Deploy the Streamlit App
+### Step 3: Deploy Streamlit App
 
 ```sql
--- Create stage and upload app
-CREATE STAGE IF NOT EXISTS RETAIL_BANKING_DB.RAW.APP_STAGE;
-PUT file://03_deliver/03b_dbt_generator_app.py @RETAIL_BANKING_DB.RAW.APP_STAGE;
-
--- Create Streamlit app
-CREATE STREAMLIT RETAIL_BANKING_DB.RAW.DBT_CODE_GENERATOR
-  ROOT_LOCATION = '@RETAIL_BANKING_DB.RAW.APP_STAGE'
-  MAIN_FILE = '03b_dbt_generator_app.py'
-  QUERY_WAREHOUSE = COMPUTE_WH;
+-- Run in Snowsight: 00_setup/01_deploy_streamlit_app.sql (Steps 5-6)
+-- Creates: dbt_code_generator Streamlit app
 ```
 
-### Contract Features
-
-The data contract (`02_design/churn_risk_data_contract.yaml`) includes:
-
-- **English Derivations**: Natural language descriptions of column logic
-- **Masking Policies**: Role-based data protection rules
-- **Business Rules**: Validation constraints in plain English
-- **SLA Definitions**: Freshness and availability targets
-
----
-
-## ✅ Testing & Validation
-
-### Run Business Rules Tests
+### Step 4: Create Sample Data
 
 ```sql
--- Execute: 03_deliver/03c_output_examples/business_rules_tests.sql
-
--- Tests:
--- BR001: Risk tier aligns with score
--- BR002: HIGH/CRITICAL risk has driver flags
--- BR003: URGENT_ESCALATION only for CRITICAL
--- BR004: Priority matches score
+-- Run in Snowsight: 03_deliver/01_create_sample_data.sql
+-- Creates: 10K customers, 25K accounts, 2M transactions
 ```
 
-### Run dbt Tests
+### Step 5: Generate dbt Code
 
-```bash
-dbt test --select retail_customer_churn_risk
-```
-
-### Validate Generator Output
-
-1. Deploy the Streamlit app
-2. Upload `02_design/churn_risk_data_contract.yaml`
-3. Click "Generate All Outputs"
-4. Compare with files in `03_deliver/03c_output_examples/`
+1. Open the Streamlit app
+2. Paste the data contract YAML
+3. Click **Generate All Outputs**
+4. Download: `model.sql`, `schema.yml`, `masking_policies.sql`
 
 ---
 
-## 📈 Monitoring & Observability
+## 📊 The Data Product
 
-### Data Quality Checks
+### Retail Customer Churn Risk
 
-| Check | Threshold | Alert |
-|-------|-----------|-------|
-| Row Count | ≥ 500 | Below threshold |
-| Uniqueness | 100% | Duplicates found |
-| Completeness | 0 nulls | Null risk scores |
-| Score Range | 0-100 | Out of bounds |
-| Business Rules | 0 violations | Rule failures |
+A governed, daily-refreshed data product providing unified churn risk scores for retail banking customers.
 
-### SLA Targets
+**Key Features:**
+- 🎯 **Churn Risk Score** (0-100) with explainable drivers
+- 📊 **Risk Tiers**: LOW / MEDIUM / HIGH / CRITICAL
+- 🔍 **5 Risk Signals**: Balance decline, activity reduction, low engagement, complaints, dormancy
+- 💡 **Recommended Interventions**: Escalation, calls, offers, meetings
 
-| SLA | Target |
-|-----|--------|
-| Data Freshness | Updated by 6 AM UTC daily |
-| Availability | 99.5% |
-| Query Response | < 5 seconds |
+**Sample Output:**
 
-### View Health Status
-
-```sql
--- Health summary
-SELECT * FROM MONITORING.data_product_health_summary;
-
--- Recent DQ checks
-SELECT * FROM MONITORING.data_quality_log 
-ORDER BY check_timestamp DESC LIMIT 20;
-
--- Freshness status
-SELECT * FROM MONITORING.data_freshness_status;
-```
+| customer_id | risk_tier | churn_risk_score | primary_risk_driver | recommended_intervention |
+|------------|-----------|------------------|---------------------|--------------------------|
+| C-00001 | HIGH | 72 | BALANCE_DECLINE | RETENTION_OFFER |
+| C-00042 | CRITICAL | 85 | DORMANCY | URGENT_ESCALATION |
+| C-00123 | LOW | 18 | NONE | NO_ACTION |
 
 ---
 
-## 🔧 Configuration
+## 🛡️ Governance
 
-### Environment Variables
+### Data Quality Rules
+- **Completeness**: No nulls in required fields
+- **Uniqueness**: customer_id is unique
+- **Validity**: risk_tier ∈ {LOW, MEDIUM, HIGH, CRITICAL}
+- **Business Rules**: 
+  - `churn_risk_score` between 0-100
+  - `risk_tier` derived correctly from score
 
-If using SnowSQL, set these in your environment:
+### SLA
+- **Freshness**: Data updated daily by 6 AM UTC
+- **Availability**: 99.5%
 
-```bash
-export SNOWFLAKE_ACCOUNT="your-account"
-export SNOWFLAKE_USER="your-username"
-export SNOWFLAKE_WAREHOUSE="COMPUTE_WH"
-export SNOWFLAKE_DATABASE="RETAIL_BANKING_DB"
-```
-
-### Customization
-
-| Setting | Location | Default |
-|---------|----------|---------|
-| Database name | All SQL files | `RETAIL_BANKING_DB` |
-| Warehouse | All SQL files | `COMPUTE_WH` |
-| Sample data size | `03a_create_sample_data.sql` | ~1,000 customers |
-| Cortex model | `03b_dbt_generator_app.py` | `claude-3-5-sonnet` |
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## 📜 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+### Access Control
+- **Authorized roles**: RETENTION_ANALYST, BRANCH_MANAGER, CUSTOMER_ANALYTICS
+- **PII masking**: customer_name masked for unauthorized users
 
 ---
 
 ## 📚 Resources
 
-- [Snowflake Semantic Views](https://docs.snowflake.com/en/user-guide/views-semantic/overview)
-- [Snowflake Internal Marketplace](https://docs.snowflake.com/en/user-guide/collaboration/listings/organizational)
-- [Snowflake Cortex LLM Functions](https://docs.snowflake.com/en/user-guide/snowflake-cortex/llm-functions)
-- [dbt Documentation](https://docs.getdbt.com/)
-- [Data Contract Specification](https://datacontract.com/)
+- [Snowflake dbt Projects](https://docs.snowflake.com/en/user-guide/ui-snowsight-dbt)
+- [Streamlit in Snowflake](https://docs.snowflake.com/en/developer-guide/streamlit/about-streamlit)
+- [Cortex LLM Functions](https://docs.snowflake.com/en/user-guide/snowflake-cortex/llm-functions)
+- [Snowflake Semantic Views](https://docs.snowflake.com/en/user-guide/ui-snowsight-semantic-views)
 
 ---
 
-## 💬 Support
+## 📄 License
 
-- 📧 Email: retail-data-support@bank.com
-- 💬 Slack: #retail-analytics
-- 📝 Issues: [GitHub Issues](https://github.com/YOUR_USERNAME/data-products-fsi/issues)
+MIT License - see [LICENSE](./LICENSE)
 
 ---
 
 <p align="center">
-  Made with ❄️ for the Financial Services community
+  <i>Built with ❄️ Snowflake, 🤖 Cortex, and 🔥 dbt</i>
 </p>
