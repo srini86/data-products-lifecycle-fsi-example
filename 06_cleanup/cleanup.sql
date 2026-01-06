@@ -5,7 +5,7 @@
 --
 -- WARNING: This will permanently delete:
 --   - Database RETAIL_BANKING_DB (and all schemas, tables, data)
---   - Warehouse COMPUTE_WH
+--   - Warehouse DATA_PRODUCTS_WH
 --   - All Streamlit apps, stages, and governance objects
 --
 -- USAGE:
@@ -51,9 +51,9 @@ SELECT '✅ Step 2 Complete: Database dropped (all schemas, tables, stages remov
 -- STEP 3: DROP WAREHOUSE
 -- ============================================================================
 
-SELECT '🗑️  Step 3: Dropping warehouse COMPUTE_WH...' AS status;
+SELECT '🗑️  Step 3: Dropping warehouse DATA_PRODUCTS_WH...' AS status;
 
-DROP WAREHOUSE IF EXISTS COMPUTE_WH;
+DROP WAREHOUSE IF EXISTS DATA_PRODUCTS_WH;
 
 SELECT '✅ Step 3 Complete: Warehouse dropped' AS status;
 
@@ -72,7 +72,7 @@ UNION ALL SELECT '    - Schema: RAW (and all source tables)'
 UNION ALL SELECT '    - Schema: DATA_PRODUCTS (and all data product tables)'
 UNION ALL SELECT '    - Schema: GOVERNANCE (stages, Streamlit apps)'
 UNION ALL SELECT '    - Schema: MONITORING (metrics, alerts)'
-UNION ALL SELECT '  • Warehouse: COMPUTE_WH'
+UNION ALL SELECT '  • Warehouse: DATA_PRODUCTS_WH'
 UNION ALL SELECT ''
 UNION ALL SELECT 'To recreate the demo environment, run:'
 UNION ALL SELECT '  snowsql -f setup.sql'

@@ -409,7 +409,7 @@ ORDER BY
 
 -- 8a. Alert for data quality failures (DMF-based)
 CREATE OR REPLACE ALERT dq_failure_alert
-    WAREHOUSE = COMPUTE_WH
+    WAREHOUSE = DATA_PRODUCTS_WH
     SCHEDULE = '60 MINUTE'
     IF (EXISTS (
         SELECT 1 
@@ -435,7 +435,7 @@ CREATE OR REPLACE ALERT dq_failure_alert
 
 -- 8b. Alert for freshness breach
 CREATE OR REPLACE ALERT freshness_breach_alert
-    WAREHOUSE = COMPUTE_WH
+    WAREHOUSE = DATA_PRODUCTS_WH
     SCHEDULE = '60 MINUTE'
     IF (EXISTS (
         SELECT 1 

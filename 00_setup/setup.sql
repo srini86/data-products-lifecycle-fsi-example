@@ -46,14 +46,14 @@ CREATE SCHEMA IF NOT EXISTS MONITORING
     COMMENT = 'Monitoring, metrics, and observability';
 
 -- Create warehouse
-CREATE WAREHOUSE IF NOT EXISTS COMPUTE_WH
+CREATE WAREHOUSE IF NOT EXISTS DATA_PRODUCTS_WH
     WAREHOUSE_SIZE = 'XSMALL'
     AUTO_SUSPEND = 300
     AUTO_RESUME = TRUE
     INITIALLY_SUSPENDED = TRUE
-    COMMENT = 'Compute warehouse for data products';
+    COMMENT = 'Dedicated warehouse for Retail Banking Data Products pipeline';
 
-USE WAREHOUSE COMPUTE_WH;
+USE WAREHOUSE DATA_PRODUCTS_WH;
 
 SELECT '✅ Step 1 Complete: Database, schemas, and warehouse created' AS status;
 
@@ -596,7 +596,7 @@ CREATE OR REPLACE STREAMLIT dbt_code_generator
     ROOT_LOCATION = '@RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps'
     MAIN_FILE = '01_dbt_generator_app.py'
     TITLE = 'dbt Code Generator'
-    QUERY_WAREHOUSE = 'COMPUTE_WH'
+    QUERY_WAREHOUSE = 'DATA_PRODUCTS_WH'
     COMMENT = 'Generates dbt models from data contracts using Cortex LLM';
 
 -- Grant access to all users
@@ -632,7 +632,7 @@ UNION ALL SELECT ''
 UNION ALL SELECT 'WHAT WAS CREATED:'
 UNION ALL SELECT '  • Database: RETAIL_BANKING_DB'
 UNION ALL SELECT '  • Schemas: RAW, DATA_PRODUCTS, GOVERNANCE, MONITORING'
-UNION ALL SELECT '  • Warehouse: COMPUTE_WH (XS, auto-suspend 5min)'
+UNION ALL SELECT '  • Warehouse: DATA_PRODUCTS_WH (XS, auto-suspend 5min)'
 UNION ALL SELECT '  • Sample Data: 5 tables with realistic FSI data'
 UNION ALL SELECT '  • Stages: data_contracts, streamlit_apps'
 UNION ALL SELECT '  • Files: Data contract YAML, Streamlit app Python'
