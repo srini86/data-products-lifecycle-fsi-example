@@ -15,13 +15,16 @@
 ```bash
 git clone https://github.com/srini86/data-products-lifecycle-fsi-example
 cd data-products-lifecycle-fsi-example
-
-# Run setup via SnowSQL (handles everything including file uploads)
-snowsql -f setup.sql
 ```
 
-> **Note**: The `setup.sql` script includes `PUT` commands which require SnowSQL CLI.
-> It creates database, schemas, sample data, uploads files to stages, and deploys the Streamlit app.
+Open `00_setup/setup.sql` in **Snowsight** and run it:
+
+```sql
+-- Copy and run the entire setup.sql script in Snowsight
+-- No SnowSQL needed! Works entirely in the web UI.
+```
+
+> **Note**: The Streamlit app code is embedded inline - no file uploads required!
 
 ### Step 2: Generate Code via Streamlit App
 
