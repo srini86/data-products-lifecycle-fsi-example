@@ -6,7 +6,7 @@
 -- 2. An Internal Marketplace listing for discovery and access
 --
 -- Reference: https://docs.snowflake.com/en/user-guide/views-semantic
--- Docs: https://docs.snowflake.com/en/sql-reference/sql/create-semantic-view
+-- Docs: https://docs.snowflake.com/en/user-guide/views-semantic
 -- ============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -17,7 +17,7 @@ USE SCHEMA DATA_PRODUCTS;
 -- PART 1: CREATE SEMANTIC VIEW
 -- ============================================================================
 -- Semantic Views enable natural language queries via Cortex Analyst
--- Syntax: alias AS schema.table PRIMARY KEY (column)
+-- Syntax from: https://docs.snowflake.com/en/sql-reference/sql/create-semantic-view
 -- ============================================================================
 
 CREATE OR REPLACE SEMANTIC VIEW retail_customer_churn_risk_sv
@@ -37,6 +37,10 @@ CREATE OR REPLACE SEMANTIC VIEW retail_customer_churn_risk_sv
     churn.recommended_intervention AS recommended_intervention,
     churn.intervention_priority AS intervention_priority,
     
+    -- Trends
+    churn.transaction_trend AS transaction_trend,
+    churn.balance_trend AS balance_trend,
+    
     -- Flags
     churn.declining_balance_flag AS declining_balance_flag,
     churn.reduced_activity_flag AS reduced_activity_flag,
@@ -44,32 +48,33 @@ CREATE OR REPLACE SEMANTIC VIEW retail_customer_churn_risk_sv
     churn.complaint_flag AS complaint_flag,
     churn.dormancy_flag AS dormancy_flag,
     churn.has_unresolved_complaint AS has_unresolved_complaint,
+    churn.mobile_app_active AS mobile_app_active,
     
     -- Time
     churn.data_as_of_date AS data_as_of_date,
-    churn.score_calculated_at AS score_calculated_at,
     churn.model_version AS model_version
   )
   METRICS (
-    -- Risk score
-    churn.churn_risk_score AS avg_churn_risk_score AGGREGATE BY AVG,
-    churn.churn_risk_score AS total_risk_exposure AGGREGATE BY SUM,
+    -- Risk metrics (format: table.column AS AGGREGATE(column))
+    churn.churn_risk_score AS AVG(churn_risk_score),
+    churn.churn_risk_score AS SUM(churn_risk_score),
+    churn.customer_id AS COUNT(customer_id),
     
     -- Relationship metrics
-    churn.relationship_tenure_months AS avg_tenure_months AGGREGATE BY AVG,
-    churn.total_products_held AS avg_products_held AGGREGATE BY AVG,
-    churn.total_relationship_balance AS total_balance AGGREGATE BY SUM,
-    churn.primary_account_balance AS avg_primary_balance AGGREGATE BY AVG,
+    churn.relationship_tenure_months AS AVG(relationship_tenure_months),
+    churn.total_products_held AS AVG(total_products_held),
+    churn.total_relationship_balance AS SUM(total_relationship_balance),
+    churn.primary_account_balance AS AVG(primary_account_balance),
     
     -- Behavioral metrics
-    churn.avg_monthly_transactions_3m AS avg_transactions AGGREGATE BY AVG,
-    churn.digital_engagement_score AS avg_digital_engagement AGGREGATE BY AVG,
-    churn.days_since_last_transaction AS avg_days_inactive AGGREGATE BY AVG,
-    churn.login_count_30d AS avg_logins AGGREGATE BY AVG,
+    churn.avg_monthly_transactions_3m AS AVG(avg_monthly_transactions_3m),
+    churn.digital_engagement_score AS AVG(digital_engagement_score),
+    churn.days_since_last_transaction AS AVG(days_since_last_transaction),
+    churn.login_count_30d AS AVG(login_count_30d),
     
     -- Complaint metrics
-    churn.open_complaints_count AS total_open_complaints AGGREGATE BY SUM,
-    churn.complaints_last_12m AS total_complaints_12m AGGREGATE BY SUM
+    churn.open_complaints_count AS SUM(open_complaints_count),
+    churn.complaints_last_12m AS SUM(complaints_last_12m)
   );
 
 -- Add comment to the semantic view
@@ -82,6 +87,9 @@ Example questions:
 - Show me high risk customers in the South East region
 - Which regions have the most critical risk customers?
 - What is the total balance at risk for customers with complaints?';
+
+-- Verify semantic view was created
+SHOW SEMANTIC VIEWS LIKE 'retail_customer_churn_risk_sv';
 
 
 -- ============================================================================
@@ -257,20 +265,6 @@ SELECT
 FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
 WHERE recommended_intervention != 'NO_ACTION'
 ORDER BY intervention_priority, churn_risk_score DESC;
-
-
--- ============================================================================
--- PART 5: VERIFY SETUP
--- ============================================================================
-
--- Check semantic view was created
-SHOW SEMANTIC VIEWS LIKE 'retail_customer_churn_risk_sv';
-
--- Check share was created
-SHOW SHARES LIKE 'retail_churn_risk_share';
-
--- Check listing was created
-SHOW LISTINGS LIKE 'retail_customer_churn_risk_listing';
 
 
 -- ============================================================================
