@@ -37,25 +37,40 @@ SELECT '✅ Step 1 Complete: Streamlit apps dropped' AS status;
 
 
 -- ============================================================================
--- STEP 2: DROP DATABASE (Cascades to all schemas, tables, stages, etc.)
+-- STEP 2: DROP SHARES (Must be dropped before database)
 -- ============================================================================
 
-SELECT '🗑️  Step 2: Dropping database RETAIL_BANKING_DB...' AS status;
+SELECT '🗑️  Step 2: Dropping shares...' AS status;
+
+-- Drop share for data products
+DROP SHARE IF EXISTS RETAIL_CHURN_RISK_SHARE;
+
+-- Drop any other shares if they exist
+-- DROP SHARE IF EXISTS OTHER_SHARE_NAME;
+
+SELECT '✅ Step 2 Complete: Shares dropped' AS status;
+
+
+-- ============================================================================
+-- STEP 3: DROP DATABASE (Cascades to all schemas, tables, stages, etc.)
+-- ============================================================================
+
+SELECT '🗑️  Step 3: Dropping database RETAIL_BANKING_DB...' AS status;
 
 DROP DATABASE IF EXISTS RETAIL_BANKING_DB CASCADE;
 
-SELECT '✅ Step 2 Complete: Database dropped (all schemas, tables, stages removed)' AS status;
+SELECT '✅ Step 3 Complete: Database dropped (all schemas, tables, stages removed)' AS status;
 
 
 -- ============================================================================
--- STEP 3: DROP WAREHOUSE
+-- STEP 4: DROP WAREHOUSE
 -- ============================================================================
 
-SELECT '🗑️  Step 3: Dropping warehouse DATA_PRODUCTS_WH...' AS status;
+SELECT '🗑️  Step 4: Dropping warehouse DATA_PRODUCTS_WH...' AS status;
 
 DROP WAREHOUSE IF EXISTS DATA_PRODUCTS_WH;
 
-SELECT '✅ Step 3 Complete: Warehouse dropped' AS status;
+SELECT '✅ Step 4 Complete: Warehouse dropped' AS status;
 
 
 -- ============================================================================
@@ -67,6 +82,7 @@ UNION ALL SELECT '                    🧹 CLEANUP COMPLETE!                    
 UNION ALL SELECT '═══════════════════════════════════════════════════════════'
 UNION ALL SELECT ''
 UNION ALL SELECT 'The following resources have been removed:'
+UNION ALL SELECT '  • Shares: RETAIL_CHURN_RISK_SHARE'
 UNION ALL SELECT '  • Database: RETAIL_BANKING_DB'
 UNION ALL SELECT '    - Schema: RAW (and all source tables)'
 UNION ALL SELECT '    - Schema: DATA_PRODUCTS (and all data product tables)'
@@ -78,4 +94,3 @@ UNION ALL SELECT 'To recreate the demo environment, run:'
 UNION ALL SELECT '  snowsql -f setup.sql'
 UNION ALL SELECT ''
 UNION ALL SELECT '═══════════════════════════════════════════════════════════';
-
