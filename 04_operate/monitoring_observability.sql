@@ -1,11 +1,14 @@
 -- ============================================================================
 -- OPERATE: Monitoring & Observability for Retail Customer Churn Risk
 -- ============================================================================
--- This script sets up monitoring and observability for the data product:
--- 1. Data quality checks
--- 2. SLA monitoring (freshness, availability)
--- 3. Usage telemetry
--- 4. Alerting via Snowflake Tasks and Notifications
+-- This script uses SNOWFLAKE NATIVE DATA QUALITY features:
+-- 1. Data Metric Functions (DMFs) - system & custom
+-- 2. Data Quality Monitoring
+-- 3. SLA monitoring with native timestamps
+-- 4. Usage telemetry via ACCOUNT_USAGE
+-- 5. Alerts via Snowflake Alerts
+--
+-- Docs: https://docs.snowflake.com/en/user-guide/data-quality-intro
 -- ============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -15,205 +18,275 @@ USE DATABASE RETAIL_BANKING_DB;
 CREATE SCHEMA IF NOT EXISTS MONITORING;
 USE SCHEMA MONITORING;
 
+
 -- ============================================================================
--- PART 1: DATA QUALITY MONITORING
+-- PART 1: SNOWFLAKE NATIVE DATA METRIC FUNCTIONS (DMFs)
+-- ============================================================================
+-- System DMFs: NULL_COUNT, DUPLICATE_COUNT, UNIQUE_COUNT, FRESHNESS, ROW_COUNT
+-- These run automatically when scheduled and store results in INFORMATION_SCHEMA
 -- ============================================================================
 
--- 1a. Create a table to store data quality check results
-CREATE OR REPLACE TABLE data_quality_log (
-    check_id            VARCHAR(50) DEFAULT UUID_STRING(),
-    check_timestamp     TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
-    data_product_name   VARCHAR(200),
-    check_type          VARCHAR(100),
-    check_name          VARCHAR(200),
-    check_status        VARCHAR(20),  -- PASS, FAIL, WARN
-    expected_value      VARCHAR(500),
-    actual_value        VARCHAR(500),
-    details             VARIANT,
-    PRIMARY KEY (check_id)
-);
+-- 1a. Apply System DMF: NULL_COUNT on critical columns
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT 
+    ON (customer_id);
 
--- 1b. Stored procedure to run data quality checks
-CREATE OR REPLACE PROCEDURE run_data_quality_checks(data_product_name VARCHAR)
-RETURNS TABLE (check_name VARCHAR, status VARCHAR, details VARCHAR)
-LANGUAGE SQL
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT 
+    ON (churn_risk_score);
+
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT 
+    ON (risk_tier);
+
+-- 1b. Apply System DMF: DUPLICATE_COUNT on primary key
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.DUPLICATE_COUNT 
+    ON (customer_id);
+
+-- 1c. Apply System DMF: UNIQUE_COUNT for cardinality
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.UNIQUE_COUNT 
+    ON (customer_id);
+
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.UNIQUE_COUNT 
+    ON (risk_tier);
+
+-- 1d. Apply System DMF: FRESHNESS on timestamp column
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.FRESHNESS 
+    ON (score_calculated_at);
+
+-- 1e. Apply System DMF: ROW_COUNT for completeness
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.ROW_COUNT 
+    ON ();
+
+
+-- ============================================================================
+-- PART 2: CUSTOM DATA METRIC FUNCTIONS
+-- ============================================================================
+-- Create custom DMFs for business-specific quality rules
+-- ============================================================================
+
+-- 2a. Custom DMF: Risk Score Range Validation (0-100)
+CREATE OR REPLACE DATA METRIC FUNCTION risk_score_out_of_range(
+    ARG_T TABLE(ARG_C NUMBER)
+)
+RETURNS NUMBER
 AS
 $$
-DECLARE
-    result_cursor CURSOR FOR 
-        SELECT check_name, check_status, actual_value 
-        FROM MONITORING.data_quality_log 
-        WHERE data_product_name = :data_product_name
-        AND check_timestamp > DATEADD('hour', -1, CURRENT_TIMESTAMP())
-        ORDER BY check_timestamp DESC;
-BEGIN
-    -- Check 1: Row count threshold
-    INSERT INTO MONITORING.data_quality_log 
-        (data_product_name, check_type, check_name, check_status, expected_value, actual_value)
-    SELECT 
-        :data_product_name,
-        'COMPLETENESS',
-        'Row Count Threshold',
-        CASE WHEN COUNT(*) >= 500 THEN 'PASS' ELSE 'FAIL' END,
-        '>= 500',
-        COUNT(*)::VARCHAR
-    FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
-    
-    -- Check 2: Primary key uniqueness
-    INSERT INTO MONITORING.data_quality_log 
-        (data_product_name, check_type, check_name, check_status, expected_value, actual_value)
-    SELECT 
-        :data_product_name,
-        'UNIQUENESS',
-        'Customer ID Uniqueness',
-        CASE WHEN COUNT(*) = COUNT(DISTINCT customer_id) THEN 'PASS' ELSE 'FAIL' END,
-        '100% unique',
-        ROUND(COUNT(DISTINCT customer_id) * 100.0 / NULLIF(COUNT(*), 0), 2)::VARCHAR || '%'
-    FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
-    
-    -- Check 3: Null check on critical columns
-    INSERT INTO MONITORING.data_quality_log 
-        (data_product_name, check_type, check_name, check_status, expected_value, actual_value)
-    SELECT 
-        :data_product_name,
-        'COMPLETENESS',
-        'Churn Risk Score Not Null',
-        CASE WHEN SUM(CASE WHEN churn_risk_score IS NULL THEN 1 ELSE 0 END) = 0 THEN 'PASS' ELSE 'FAIL' END,
-        '0 nulls',
-        SUM(CASE WHEN churn_risk_score IS NULL THEN 1 ELSE 0 END)::VARCHAR || ' nulls'
-    FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
-    
-    -- Check 4: Value range for risk score
-    INSERT INTO MONITORING.data_quality_log 
-        (data_product_name, check_type, check_name, check_status, expected_value, actual_value)
-    SELECT 
-        :data_product_name,
-        'VALIDITY',
-        'Risk Score Range (0-100)',
-        CASE 
-            WHEN MIN(churn_risk_score) >= 0 AND MAX(churn_risk_score) <= 100 THEN 'PASS' 
-            ELSE 'FAIL' 
-        END,
-        '0 to 100',
-        'Min: ' || MIN(churn_risk_score)::VARCHAR || ', Max: ' || MAX(churn_risk_score)::VARCHAR
-    FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
-    
-    -- Check 5: Risk tier alignment with score
-    INSERT INTO MONITORING.data_quality_log 
-        (data_product_name, check_type, check_name, check_status, expected_value, actual_value)
-    SELECT 
-        :data_product_name,
-        'BUSINESS_RULE',
-        'Risk Tier Aligns with Score',
-        CASE WHEN misaligned_count = 0 THEN 'PASS' ELSE 'FAIL' END,
-        '0 misaligned',
-        misaligned_count::VARCHAR || ' misaligned'
-    FROM (
-        SELECT COUNT(*) AS misaligned_count
-        FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
-        WHERE NOT (
-            (churn_risk_score <= 25 AND risk_tier = 'LOW') OR
-            (churn_risk_score > 25 AND churn_risk_score <= 50 AND risk_tier = 'MEDIUM') OR
-            (churn_risk_score > 50 AND churn_risk_score <= 75 AND risk_tier = 'HIGH') OR
-            (churn_risk_score > 75 AND risk_tier = 'CRITICAL')
-        )
-    );
-    
-    -- Check 6: High risk percentage threshold (warn if >25%)
-    INSERT INTO MONITORING.data_quality_log 
-        (data_product_name, check_type, check_name, check_status, expected_value, actual_value)
-    SELECT 
-        :data_product_name,
-        'BUSINESS_RULE',
-        'High Risk Percentage',
-        CASE 
-            WHEN high_risk_pct <= 25 THEN 'PASS' 
-            WHEN high_risk_pct <= 35 THEN 'WARN'
-            ELSE 'FAIL' 
-        END,
-        '<= 25%',
-        ROUND(high_risk_pct, 2)::VARCHAR || '%'
-    FROM (
-        SELECT 
-            SUM(CASE WHEN risk_tier IN ('HIGH', 'CRITICAL') THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS high_risk_pct
-        FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
-    );
-    
-    -- Return results
-    OPEN result_cursor;
-    RETURN TABLE(result_cursor);
-END;
+    SELECT COUNT(*) 
+    FROM ARG_T 
+    WHERE ARG_C < 0 OR ARG_C > 100
 $$;
 
+-- Apply custom DMF
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION MONITORING.risk_score_out_of_range 
+    ON (churn_risk_score);
+
+-- 2b. Custom DMF: Risk Tier Misalignment
+CREATE OR REPLACE DATA METRIC FUNCTION risk_tier_misalignment(
+    ARG_T TABLE(score NUMBER, tier VARCHAR)
+)
+RETURNS NUMBER
+AS
+$$
+    SELECT COUNT(*)
+    FROM ARG_T
+    WHERE NOT (
+        (score <= 25 AND tier = 'LOW') OR
+        (score > 25 AND score <= 50 AND tier = 'MEDIUM') OR
+        (score > 50 AND score <= 75 AND tier = 'HIGH') OR
+        (score > 75 AND tier = 'CRITICAL')
+    )
+$$;
+
+-- Apply custom DMF
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION MONITORING.risk_tier_misalignment 
+    ON (churn_risk_score, risk_tier);
+
+-- 2c. Custom DMF: Invalid Risk Tier Values
+CREATE OR REPLACE DATA METRIC FUNCTION invalid_risk_tier(
+    ARG_T TABLE(ARG_C VARCHAR)
+)
+RETURNS NUMBER
+AS
+$$
+    SELECT COUNT(*)
+    FROM ARG_T
+    WHERE ARG_C NOT IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')
+$$;
+
+-- Apply custom DMF
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION MONITORING.invalid_risk_tier 
+    ON (risk_tier);
+
+-- 2d. Custom DMF: High Risk Percentage (business threshold)
+CREATE OR REPLACE DATA METRIC FUNCTION high_risk_percentage(
+    ARG_T TABLE(ARG_C VARCHAR)
+)
+RETURNS NUMBER
+AS
+$$
+    SELECT ROUND(
+        SUM(CASE WHEN ARG_C IN ('HIGH', 'CRITICAL') THEN 1 ELSE 0 END) * 100.0 / 
+        NULLIF(COUNT(*), 0), 
+        2
+    )
+    FROM ARG_T
+$$;
+
+-- Apply custom DMF
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION MONITORING.high_risk_percentage 
+    ON (risk_tier);
+
 
 -- ============================================================================
--- PART 2: SLA MONITORING
+-- PART 3: SCHEDULE DATA QUALITY MONITORING
+-- ============================================================================
+-- Set monitoring schedule - DMFs run automatically per schedule
 -- ============================================================================
 
--- 2a. Freshness monitoring view
+-- Schedule DMF evaluation (runs every 12 hours)
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    SET DATA_METRIC_SCHEDULE = 'TRIGGER_ON_CHANGES';
+    -- Alternative: 'USING CRON 0 6,18 * * * UTC' for twice daily at 6AM and 6PM
+
+
+-- ============================================================================
+-- PART 4: VIEW DMF RESULTS FROM INFORMATION_SCHEMA
+-- ============================================================================
+-- Query built-in views for DMF results
+-- ============================================================================
+
+-- 4a. View all DMFs applied to the table
+CREATE OR REPLACE VIEW dmf_configuration AS
+SELECT 
+    metric_database_name,
+    metric_schema_name,
+    metric_name,
+    ref_entity_name AS table_name,
+    ref_column_names AS columns,
+    schedule,
+    schedule_status
+FROM TABLE(
+    INFORMATION_SCHEMA.DATA_METRIC_FUNCTION_REFERENCES(
+        REF_ENTITY_NAME => 'RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK',
+        REF_ENTITY_DOMAIN => 'TABLE'
+    )
+);
+
+-- 4b. View latest DMF results (Data Quality Monitoring Results)
+CREATE OR REPLACE VIEW data_quality_results AS
+SELECT 
+    measurement_time,
+    metric_database_name || '.' || metric_schema_name || '.' || metric_name AS metric_full_name,
+    metric_name,
+    table_database_name || '.' || table_schema_name || '.' || table_name AS table_full_name,
+    column_names,
+    value AS metric_value,
+    CASE 
+        -- System DMFs - interpret results
+        WHEN metric_name = 'NULL_COUNT' AND value > 0 THEN 'FAIL'
+        WHEN metric_name = 'DUPLICATE_COUNT' AND value > 0 THEN 'FAIL'
+        WHEN metric_name = 'FRESHNESS' AND value > 86400 THEN 'FAIL'  -- > 24 hours in seconds
+        WHEN metric_name = 'ROW_COUNT' AND value < 500 THEN 'FAIL'
+        -- Custom DMFs
+        WHEN metric_name = 'RISK_SCORE_OUT_OF_RANGE' AND value > 0 THEN 'FAIL'
+        WHEN metric_name = 'RISK_TIER_MISALIGNMENT' AND value > 0 THEN 'FAIL'
+        WHEN metric_name = 'INVALID_RISK_TIER' AND value > 0 THEN 'FAIL'
+        WHEN metric_name = 'HIGH_RISK_PERCENTAGE' AND value > 35 THEN 'WARN'
+        ELSE 'PASS'
+    END AS quality_status
+FROM SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS
+WHERE table_name = 'RETAIL_CUSTOMER_CHURN_RISK'
+ORDER BY measurement_time DESC;
+
+-- 4c. Latest quality summary by metric
+CREATE OR REPLACE VIEW data_quality_summary AS
+SELECT 
+    metric_name,
+    column_names,
+    value AS latest_value,
+    measurement_time AS last_checked,
+    CASE 
+        WHEN metric_name = 'NULL_COUNT' THEN 'Nulls in column: ' || value::VARCHAR
+        WHEN metric_name = 'DUPLICATE_COUNT' THEN 'Duplicate rows: ' || value::VARCHAR
+        WHEN metric_name = 'UNIQUE_COUNT' THEN 'Unique values: ' || value::VARCHAR
+        WHEN metric_name = 'ROW_COUNT' THEN 'Total rows: ' || value::VARCHAR
+        WHEN metric_name = 'FRESHNESS' THEN 'Age: ' || ROUND(value/3600, 1)::VARCHAR || ' hours'
+        WHEN metric_name = 'RISK_SCORE_OUT_OF_RANGE' THEN 'Out of range: ' || value::VARCHAR
+        WHEN metric_name = 'RISK_TIER_MISALIGNMENT' THEN 'Misaligned: ' || value::VARCHAR
+        WHEN metric_name = 'HIGH_RISK_PERCENTAGE' THEN 'High risk: ' || value::VARCHAR || '%'
+        ELSE value::VARCHAR
+    END AS interpretation
+FROM SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS
+WHERE table_name = 'RETAIL_CUSTOMER_CHURN_RISK'
+QUALIFY ROW_NUMBER() OVER (PARTITION BY metric_name, column_names ORDER BY measurement_time DESC) = 1;
+
+
+-- ============================================================================
+-- PART 5: SLA MONITORING (Using Native Table Metadata)
+-- ============================================================================
+
+-- 5a. Freshness status using native metadata
 CREATE OR REPLACE VIEW data_freshness_status AS
 SELECT 
     'RETAIL_CUSTOMER_CHURN_RISK' AS data_product_name,
-    MAX(score_calculated_at) AS last_refresh_time,
-    MAX(data_as_of_date) AS data_as_of_date,
-    DATEDIFF('hour', MAX(score_calculated_at), CURRENT_TIMESTAMP()) AS hours_since_refresh,
+    
+    -- From DMF results
+    (SELECT value 
+     FROM SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS 
+     WHERE table_name = 'RETAIL_CUSTOMER_CHURN_RISK' 
+       AND metric_name = 'FRESHNESS'
+     ORDER BY measurement_time DESC LIMIT 1) AS freshness_seconds,
+    
+    -- Calculate hours
+    ROUND(freshness_seconds / 3600, 1) AS hours_since_refresh,
+    
+    -- SLA threshold (24 hours = 86400 seconds)
+    24 AS sla_hours,
+    
+    -- Status
     CASE 
-        WHEN DATEDIFF('hour', MAX(score_calculated_at), CURRENT_TIMESTAMP()) <= 24 THEN 'FRESH'
-        WHEN DATEDIFF('hour', MAX(score_calculated_at), CURRENT_TIMESTAMP()) <= 25 THEN 'WARNING'
+        WHEN freshness_seconds <= 86400 THEN 'FRESH'
+        WHEN freshness_seconds <= 90000 THEN 'WARNING'  -- 25 hours grace
         ELSE 'STALE'
     END AS freshness_status,
-    '24 hours' AS sla_threshold,
-    CASE 
-        WHEN DATEDIFF('hour', MAX(score_calculated_at), CURRENT_TIMESTAMP()) <= 24 THEN 'MEETING_SLA'
-        ELSE 'SLA_BREACH'
-    END AS sla_status
-FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
-
--- 2b. SLA tracking table
-CREATE OR REPLACE TABLE sla_tracking (
-    tracking_id         VARCHAR(50) DEFAULT UUID_STRING(),
-    check_timestamp     TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
-    data_product_name   VARCHAR(200),
-    sla_type            VARCHAR(50),  -- FRESHNESS, AVAILABILITY, RESPONSE_TIME
-    sla_target          VARCHAR(100),
-    actual_value        VARCHAR(100),
-    sla_met             BOOLEAN,
-    breach_duration_minutes INTEGER,
-    PRIMARY KEY (tracking_id)
-);
-
--- 2c. Procedure to check and log SLA status
-CREATE OR REPLACE PROCEDURE check_sla_status()
-RETURNS VARCHAR
-LANGUAGE SQL
-AS
-$$
-BEGIN
-    -- Log freshness SLA
-    INSERT INTO MONITORING.sla_tracking 
-        (data_product_name, sla_type, sla_target, actual_value, sla_met, breach_duration_minutes)
-    SELECT 
-        data_product_name,
-        'FRESHNESS',
-        sla_threshold,
-        hours_since_refresh::VARCHAR || ' hours',
-        sla_status = 'MEETING_SLA',
-        CASE 
-            WHEN sla_status = 'MEETING_SLA' THEN 0 
-            ELSE (hours_since_refresh - 24) * 60 
-        END
-    FROM MONITORING.data_freshness_status;
     
-    RETURN 'SLA check completed';
-END;
-$$;
+    CASE 
+        WHEN freshness_seconds <= 86400 THEN TRUE
+        ELSE FALSE
+    END AS sla_met,
+    
+    CURRENT_TIMESTAMP() AS checked_at;
+
+-- 5b. Row count from native DMF
+CREATE OR REPLACE VIEW row_count_status AS
+SELECT 
+    'RETAIL_CUSTOMER_CHURN_RISK' AS data_product_name,
+    value AS row_count,
+    500 AS minimum_threshold,
+    CASE WHEN value >= 500 THEN 'PASS' ELSE 'FAIL' END AS status,
+    measurement_time AS last_checked
+FROM SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS 
+WHERE table_name = 'RETAIL_CUSTOMER_CHURN_RISK' 
+  AND metric_name = 'ROW_COUNT'
+ORDER BY measurement_time DESC 
+LIMIT 1;
 
 
 -- ============================================================================
--- PART 3: USAGE TELEMETRY
+-- PART 6: USAGE TELEMETRY (Native ACCOUNT_USAGE)
 -- ============================================================================
 
--- 3a. Query history for the data product
+-- 6a. Query history for the data product
 CREATE OR REPLACE VIEW data_product_usage AS
 SELECT 
     query_id,
@@ -224,84 +297,93 @@ SELECT
     end_time,
     total_elapsed_time / 1000 AS duration_seconds,
     rows_produced,
+    bytes_scanned,
     query_type,
-    CASE 
-        WHEN query_text ILIKE '%RETAIL_CUSTOMER_CHURN_RISK%' THEN 'CHURN_RISK_PRODUCT'
-        ELSE 'OTHER'
-    END AS data_product_accessed
+    execution_status
 FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
 WHERE query_text ILIKE '%RETAIL_CUSTOMER_CHURN_RISK%'
   AND start_time >= DATEADD('day', -30, CURRENT_DATE())
+  AND execution_status = 'SUCCESS'
 ORDER BY start_time DESC;
 
--- 3b. Usage summary by consumer
+-- 6b. Usage by consumer role
 CREATE OR REPLACE VIEW usage_by_consumer AS
 SELECT 
-    user_name,
     role_name,
+    user_name,
     COUNT(*) AS query_count,
     SUM(rows_produced) AS total_rows_accessed,
-    AVG(duration_seconds) AS avg_query_duration_sec,
+    ROUND(AVG(duration_seconds), 2) AS avg_query_duration_sec,
+    ROUND(SUM(bytes_scanned) / 1024 / 1024, 2) AS total_mb_scanned,
     MIN(start_time) AS first_access,
     MAX(start_time) AS last_access
 FROM MONITORING.data_product_usage
-WHERE data_product_accessed = 'CHURN_RISK_PRODUCT'
-GROUP BY user_name, role_name
+GROUP BY role_name, user_name
 ORDER BY query_count DESC;
 
--- 3c. Daily usage trends
+-- 6c. Daily usage trends
 CREATE OR REPLACE VIEW daily_usage_trends AS
 SELECT 
     DATE(start_time) AS usage_date,
     COUNT(*) AS query_count,
     COUNT(DISTINCT user_name) AS unique_users,
+    COUNT(DISTINCT role_name) AS unique_roles,
     SUM(rows_produced) AS total_rows,
-    AVG(duration_seconds) AS avg_duration_sec
+    ROUND(AVG(duration_seconds), 2) AS avg_duration_sec,
+    ROUND(SUM(bytes_scanned) / 1024 / 1024 / 1024, 3) AS total_gb_scanned
 FROM MONITORING.data_product_usage
-WHERE data_product_accessed = 'CHURN_RISK_PRODUCT'
 GROUP BY DATE(start_time)
 ORDER BY usage_date DESC;
 
 
 -- ============================================================================
--- PART 4: DATA PRODUCT METRICS DASHBOARD
+-- PART 7: HEALTH DASHBOARD
 -- ============================================================================
 
--- 4a. Executive summary view
+-- 7a. Executive health summary
 CREATE OR REPLACE VIEW data_product_health_summary AS
 SELECT 
     'RETAIL_CUSTOMER_CHURN_RISK' AS data_product_name,
     
-    -- Row count
-    (SELECT COUNT(*) FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK) AS total_records,
+    -- Row count from DMF
+    (SELECT value FROM SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS 
+     WHERE table_name = 'RETAIL_CUSTOMER_CHURN_RISK' AND metric_name = 'ROW_COUNT'
+     ORDER BY measurement_time DESC LIMIT 1) AS total_records,
     
-    -- Freshness
+    -- Freshness from DMF
     (SELECT freshness_status FROM MONITORING.data_freshness_status) AS freshness_status,
     (SELECT hours_since_refresh FROM MONITORING.data_freshness_status) AS hours_since_refresh,
     
-    -- Latest DQ status
-    (SELECT COUNT(*) FROM MONITORING.data_quality_log 
-     WHERE data_product_name = 'RETAIL_CUSTOMER_CHURN_RISK' 
-       AND check_status = 'PASS'
-       AND check_timestamp > DATEADD('day', -1, CURRENT_TIMESTAMP())) AS dq_checks_passed_24h,
+    -- DQ summary from DMF results
+    (SELECT COUNT(*) FROM MONITORING.data_quality_results 
+     WHERE quality_status = 'PASS' 
+       AND measurement_time > DATEADD('day', -1, CURRENT_TIMESTAMP())) AS checks_passed_24h,
     
-    (SELECT COUNT(*) FROM MONITORING.data_quality_log 
-     WHERE data_product_name = 'RETAIL_CUSTOMER_CHURN_RISK' 
-       AND check_status = 'FAIL'
-       AND check_timestamp > DATEADD('day', -1, CURRENT_TIMESTAMP())) AS dq_checks_failed_24h,
+    (SELECT COUNT(*) FROM MONITORING.data_quality_results 
+     WHERE quality_status = 'FAIL' 
+       AND measurement_time > DATEADD('day', -1, CURRENT_TIMESTAMP())) AS checks_failed_24h,
     
-    -- Usage stats (last 7 days)
+    -- Usage stats
     (SELECT COUNT(*) FROM MONITORING.data_product_usage 
-     WHERE data_product_accessed = 'CHURN_RISK_PRODUCT'
-       AND start_time > DATEADD('day', -7, CURRENT_TIMESTAMP())) AS queries_last_7d,
+     WHERE start_time > DATEADD('day', -7, CURRENT_TIMESTAMP())) AS queries_last_7d,
     
     (SELECT COUNT(DISTINCT user_name) FROM MONITORING.data_product_usage 
-     WHERE data_product_accessed = 'CHURN_RISK_PRODUCT'
-       AND start_time > DATEADD('day', -7, CURRENT_TIMESTAMP())) AS unique_users_7d,
+     WHERE start_time > DATEADD('day', -7, CURRENT_TIMESTAMP())) AS unique_users_7d,
+    
+    -- Overall health
+    CASE 
+        WHEN (SELECT COUNT(*) FROM MONITORING.data_quality_results 
+              WHERE quality_status = 'FAIL' 
+                AND measurement_time > DATEADD('hour', -1, CURRENT_TIMESTAMP())) > 0 
+        THEN 'DEGRADED'
+        WHEN (SELECT freshness_status FROM MONITORING.data_freshness_status) = 'STALE' 
+        THEN 'DEGRADED'
+        ELSE 'HEALTHY'
+    END AS overall_health,
     
     CURRENT_TIMESTAMP() AS report_generated_at;
 
--- 4b. Risk distribution summary
+-- 7b. Risk distribution summary
 CREATE OR REPLACE VIEW risk_distribution_summary AS
 SELECT 
     risk_tier,
@@ -322,118 +404,91 @@ ORDER BY
 
 
 -- ============================================================================
--- PART 5: AUTOMATED MONITORING TASKS
+-- PART 8: SNOWFLAKE NATIVE ALERTS
 -- ============================================================================
 
--- 5a. Create a task for daily data quality checks
-CREATE OR REPLACE TASK daily_data_quality_check
-    WAREHOUSE = COMPUTE_WH
-    SCHEDULE = 'USING CRON 0 7 * * * UTC'  -- Run daily at 7 AM UTC (after refresh)
-AS
-    CALL MONITORING.run_data_quality_checks('RETAIL_CUSTOMER_CHURN_RISK');
-
--- 5b. Create a task for hourly SLA monitoring
-CREATE OR REPLACE TASK hourly_sla_check
-    WAREHOUSE = COMPUTE_WH
-    SCHEDULE = 'USING CRON 0 * * * * UTC'  -- Run every hour
-AS
-    CALL MONITORING.check_sla_status();
-
--- 5c. Enable the tasks
-ALTER TASK daily_data_quality_check RESUME;
-ALTER TASK hourly_sla_check RESUME;
-
-
--- ============================================================================
--- PART 6: ALERTING SETUP
--- ============================================================================
-
--- 6a. Create email notification integration (requires account admin)
--- Note: Replace with your actual email integration settings
-/*
-CREATE OR REPLACE NOTIFICATION INTEGRATION data_product_alerts
-    TYPE = EMAIL
-    ENABLED = TRUE
-    ALLOWED_RECIPIENTS = ('retail-data-support@bank.com', 'alex.morgan@bank.com');
-*/
-
--- 6b. Create alert for data freshness breach
-CREATE OR REPLACE ALERT freshness_breach_alert
-    WAREHOUSE = COMPUTE_WH
-    SCHEDULE = 'USING CRON 0 * * * * UTC'  -- Check every hour
-    IF (EXISTS (
-        SELECT 1 FROM MONITORING.data_freshness_status 
-        WHERE freshness_status = 'STALE'
-    ))
-    THEN
-        -- In production, this would send a notification
-        -- For now, log to a table
-        INSERT INTO MONITORING.sla_tracking 
-            (data_product_name, sla_type, sla_target, actual_value, sla_met)
-        SELECT 
-            data_product_name, 
-            'FRESHNESS_ALERT', 
-            sla_threshold, 
-            hours_since_refresh::VARCHAR || ' hours',
-            FALSE
-        FROM MONITORING.data_freshness_status;
-
--- 6c. Create alert for data quality failures
+-- 8a. Alert for data quality failures (DMF-based)
 CREATE OR REPLACE ALERT dq_failure_alert
     WAREHOUSE = COMPUTE_WH
-    SCHEDULE = 'USING CRON 30 7 * * * UTC'  -- Check 30 mins after DQ runs
+    SCHEDULE = '60 MINUTE'
     IF (EXISTS (
-        SELECT 1 FROM MONITORING.data_quality_log 
-        WHERE data_product_name = 'RETAIL_CUSTOMER_CHURN_RISK'
-          AND check_status = 'FAIL'
-          AND check_timestamp > DATEADD('hour', -1, CURRENT_TIMESTAMP())
+        SELECT 1 
+        FROM MONITORING.data_quality_results 
+        WHERE quality_status = 'FAIL'
+          AND measurement_time > DATEADD('hour', -1, CURRENT_TIMESTAMP())
     ))
     THEN
-        INSERT INTO MONITORING.sla_tracking 
-            (data_product_name, sla_type, sla_target, actual_value, sla_met)
-        VALUES 
-            ('RETAIL_CUSTOMER_CHURN_RISK', 'DATA_QUALITY_ALERT', 'All checks pass', 'Failures detected', FALSE);
+        BEGIN
+            -- Log the alert
+            INSERT INTO MONITORING.alert_log (alert_name, alert_time, details)
+            SELECT 
+                'DATA_QUALITY_FAILURE',
+                CURRENT_TIMESTAMP(),
+                OBJECT_CONSTRUCT(
+                    'failed_metrics', ARRAY_AGG(metric_name),
+                    'table', 'RETAIL_CUSTOMER_CHURN_RISK'
+                )
+            FROM MONITORING.data_quality_results 
+            WHERE quality_status = 'FAIL'
+              AND measurement_time > DATEADD('hour', -1, CURRENT_TIMESTAMP());
+        END;
+
+-- 8b. Alert for freshness breach
+CREATE OR REPLACE ALERT freshness_breach_alert
+    WAREHOUSE = COMPUTE_WH
+    SCHEDULE = '60 MINUTE'
+    IF (EXISTS (
+        SELECT 1 
+        FROM MONITORING.data_freshness_status 
+        WHERE sla_met = FALSE
+    ))
+    THEN
+        INSERT INTO MONITORING.alert_log (alert_name, alert_time, details)
+        SELECT 
+            'FRESHNESS_SLA_BREACH',
+            CURRENT_TIMESTAMP(),
+            OBJECT_CONSTRUCT(
+                'hours_since_refresh', hours_since_refresh,
+                'sla_hours', sla_hours,
+                'table', 'RETAIL_CUSTOMER_CHURN_RISK'
+            )
+        FROM MONITORING.data_freshness_status;
+
+-- 8c. Create alert log table
+CREATE OR REPLACE TABLE alert_log (
+    alert_id        VARCHAR(50) DEFAULT UUID_STRING(),
+    alert_name      VARCHAR(100),
+    alert_time      TIMESTAMP_NTZ,
+    details         VARIANT,
+    acknowledged    BOOLEAN DEFAULT FALSE,
+    acknowledged_by VARCHAR(100),
+    acknowledged_at TIMESTAMP_NTZ,
+    PRIMARY KEY (alert_id)
+);
 
 -- Enable alerts
-ALTER ALERT freshness_breach_alert RESUME;
 ALTER ALERT dq_failure_alert RESUME;
+ALTER ALERT freshness_breach_alert RESUME;
 
 
 -- ============================================================================
--- PART 7: SAMPLE MONITORING QUERIES
+-- PART 9: SAMPLE MONITORING QUERIES
 -- ============================================================================
 
--- View overall health status
+-- View all applied DMFs
+SELECT * FROM MONITORING.dmf_configuration;
+
+-- View latest DQ results
+SELECT * FROM MONITORING.data_quality_results;
+
+-- View DQ summary
+SELECT * FROM MONITORING.data_quality_summary;
+
+-- View overall health
 SELECT * FROM MONITORING.data_product_health_summary;
-
--- View recent data quality check results
-SELECT 
-    check_timestamp,
-    check_type,
-    check_name,
-    check_status,
-    expected_value,
-    actual_value
-FROM MONITORING.data_quality_log
-WHERE data_product_name = 'RETAIL_CUSTOMER_CHURN_RISK'
-ORDER BY check_timestamp DESC
-LIMIT 20;
 
 -- View freshness status
 SELECT * FROM MONITORING.data_freshness_status;
-
--- View SLA tracking history
-SELECT 
-    check_timestamp,
-    sla_type,
-    sla_target,
-    actual_value,
-    sla_met,
-    breach_duration_minutes
-FROM MONITORING.sla_tracking
-WHERE data_product_name = 'RETAIL_CUSTOMER_CHURN_RISK'
-ORDER BY check_timestamp DESC
-LIMIT 50;
 
 -- View usage trends
 SELECT * FROM MONITORING.daily_usage_trends LIMIT 30;
@@ -441,15 +496,36 @@ SELECT * FROM MONITORING.daily_usage_trends LIMIT 30;
 -- View top consumers
 SELECT * FROM MONITORING.usage_by_consumer LIMIT 20;
 
+-- View alerts
+SELECT * FROM MONITORING.alert_log ORDER BY alert_time DESC LIMIT 50;
+
+-- View risk distribution
+SELECT * FROM MONITORING.risk_distribution_summary;
+
 
 -- ============================================================================
 -- MONITORING SETUP COMPLETE
 -- ============================================================================
--- Summary:
--- 1. Data quality checks configured (6 checks)
--- 2. Freshness monitoring enabled
--- 3. Usage telemetry views created
--- 4. Automated tasks scheduled
--- 5. Alerts configured for SLA breaches
+-- Summary (Using Snowflake Native Features):
+-- 
+-- 1. SYSTEM DMFs Applied:
+--    - NULL_COUNT on customer_id, churn_risk_score, risk_tier
+--    - DUPLICATE_COUNT on customer_id
+--    - UNIQUE_COUNT on customer_id, risk_tier
+--    - FRESHNESS on score_calculated_at
+--    - ROW_COUNT for completeness
+--
+-- 2. CUSTOM DMFs Created:
+--    - risk_score_out_of_range (0-100 validation)
+--    - risk_tier_misalignment (score-tier consistency)
+--    - invalid_risk_tier (enum validation)
+--    - high_risk_percentage (business threshold)
+--
+-- 3. Native Features Used:
+--    - DATA_QUALITY_MONITORING_RESULTS view
+--    - DATA_METRIC_FUNCTION_REFERENCES
+--    - ACCOUNT_USAGE.QUERY_HISTORY
+--    - Snowflake ALERT objects
+--
+-- Docs: https://docs.snowflake.com/en/user-guide/data-quality-intro
 -- ============================================================================
-
