@@ -75,6 +75,7 @@ data-products-code-sample/
 │
 ├── 00_setup/                          # Snowflake setup
 │   ├── 01_deploy_streamlit_app.sql    #   Create DB, stages, deploy app
+│   ├── 02_create_sample_data.sql      #   Generate sample data
 │   └── README.md
 │
 ├── 01_discover/                       # DISCOVER phase
@@ -84,14 +85,13 @@ data-products-code-sample/
 │   └── churn_risk_data_contract.yaml  #   Schema, SLAs, quality rules
 │
 ├── 03_deliver/                        # DELIVER phase
-│   ├── 01_create_sample_data.sql      #   Generate 10K customers, 25K accounts
-│   ├── 02_dbt_generator_app.py        #   Streamlit app (Cortex-powered)
-│   ├── 03_generated_output/           #   Example outputs from the app
+│   ├── 01_dbt_generator_app.py        #   Streamlit app (Cortex-powered)
+│   ├── 02_generated_output/           #   Example outputs from the app
 │   │   ├── retail_customer_churn_risk.sql
 │   │   ├── schema.yml
 │   │   ├── masking_policies.sql
 │   │   └── business_rules_tests.sql
-│   └── 04_semantic_view_marketplace.sql  # Publish to Internal Marketplace
+│   └── 03_semantic_view_marketplace.sql  # Publish to Internal Marketplace
 │
 ├── 04_operate/                        # OPERATE phase
 │   └── monitoring_observability.sql   #   SLA, DQ, alerts, telemetry
@@ -126,20 +126,20 @@ Upload to Snowflake stages via Snowsight:
 | File | Stage |
 |------|-------|
 | `02_design/churn_risk_data_contract.yaml` | `@GOVERNANCE.data_contracts` |
-| `03_deliver/02_dbt_generator_app.py` | `@GOVERNANCE.streamlit_apps` |
+| `03_deliver/01_dbt_generator_app.py` | `@GOVERNANCE.streamlit_apps` |
 
-### Step 3: Deploy Streamlit App
+### Step 3: Create Sample Data
+
+```sql
+-- Run in Snowsight: 00_setup/02_create_sample_data.sql
+-- Creates: 10K customers, 25K accounts, 2M transactions
+```
+
+### Step 4: Deploy Streamlit App
 
 ```sql
 -- Run in Snowsight: 00_setup/01_deploy_streamlit_app.sql (Steps 5-6)
 -- Creates: dbt_code_generator Streamlit app
-```
-
-### Step 4: Create Sample Data
-
-```sql
--- Run in Snowsight: 03_deliver/01_create_sample_data.sql
--- Creates: 10K customers, 25K accounts, 2M transactions
 ```
 
 ### Step 5: Generate dbt Code

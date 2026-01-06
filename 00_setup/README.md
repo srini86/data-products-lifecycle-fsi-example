@@ -1,12 +1,19 @@
 # 00_setup - Snowflake Setup Scripts
 
-This folder contains the setup script to deploy the dbt Code Generator Streamlit app.
+This folder contains the setup scripts for deploying the solution.
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `01_deploy_streamlit_app.sql` | Create DB, schemas, stages, and deploy Streamlit app |
+| `02_create_sample_data.sql` | Generate sample data (10K customers, 25K accounts, 2M transactions) |
 
 ## Quick Start
 
-### Step 1: Run the Setup Script
+### Step 1: Create Infrastructure
 
-Open `01_deploy_streamlit_app.sql` in Snowflake Snowsight and run Steps 1-2 to create the database, schemas, and stages.
+Open `01_deploy_streamlit_app.sql` in Snowsight and run Steps 1-2 to create the database, schemas, and stages.
 
 ### Step 2: Upload Files
 
@@ -15,7 +22,7 @@ Upload these files to Snowflake stages:
 | File | Upload To Stage |
 |------|-----------------|
 | `02_design/churn_risk_data_contract.yaml` | `@GOVERNANCE.data_contracts` |
-| `03_deliver/02_dbt_generator_app.py` | `@GOVERNANCE.streamlit_apps` |
+| `03_deliver/01_dbt_generator_app.py` | `@GOVERNANCE.streamlit_apps` |
 
 **Using Snowsight (Web UI):**
 1. Go to Data → Databases → RETAIL_BANKING_DB → GOVERNANCE → Stages
@@ -26,10 +33,14 @@ Upload these files to Snowflake stages:
 snowsql -a <account> -u <username>
 
 PUT file://02_design/churn_risk_data_contract.yaml @RETAIL_BANKING_DB.GOVERNANCE.data_contracts AUTO_COMPRESS=FALSE;
-PUT file://03_deliver/02_dbt_generator_app.py @RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps AUTO_COMPRESS=FALSE;
+PUT file://03_deliver/01_dbt_generator_app.py @RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps AUTO_COMPRESS=FALSE;
 ```
 
-### Step 3: Deploy Streamlit App
+### Step 3: Create Sample Data
+
+Run `02_create_sample_data.sql` in Snowsight to populate the source tables.
+
+### Step 4: Deploy Streamlit App
 
 Run Steps 5-6 in `01_deploy_streamlit_app.sql` to create and verify the Streamlit app.
 
