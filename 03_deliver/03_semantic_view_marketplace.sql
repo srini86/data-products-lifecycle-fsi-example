@@ -5,8 +5,8 @@
 -- 1. A Semantic View for Cortex Analyst (natural language queries)
 -- 2. An Internal Marketplace listing for discovery and access
 --
--- Semantic Views: https://docs.snowflake.com/en/user-guide/views-semantic
--- Internal Marketplace: https://docs.snowflake.com/en/user-guide/collaboration/listings
+-- Reference: https://docs.snowflake.com/en/user-guide/views-semantic
+-- Docs: https://docs.snowflake.com/en/sql-reference/sql/create-semantic-view
 -- ============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -17,104 +17,71 @@ USE SCHEMA DATA_PRODUCTS;
 -- PART 1: CREATE SEMANTIC VIEW
 -- ============================================================================
 -- Semantic Views enable natural language queries via Cortex Analyst
+-- Syntax: alias AS schema.table PRIMARY KEY (column)
 -- ============================================================================
 
 CREATE OR REPLACE SEMANTIC VIEW retail_customer_churn_risk_sv
-TABLES (
-    churn_risk AS (
-        SELECT *
-        FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
-    )
-    PRIMARY KEY (customer_id)
-)
-DIMENSIONS (
+  TABLES (
+    churn AS DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK PRIMARY KEY (customer_id)
+  )
+  DIMENSIONS (
     -- Customer attributes
-    customer_id
-        DESCRIPTION 'Unique identifier for the retail customer'
-        SYNONYMS ('customer number', 'client id', 'cust id'),
-    customer_name
-        DESCRIPTION 'Full name of the customer'
-        SYNONYMS ('name', 'client name'),
-    customer_segment
-        DESCRIPTION 'Customer value segment: MASS_MARKET, MASS_AFFLUENT, AFFLUENT, HIGH_NET_WORTH'
-        SYNONYMS ('segment', 'tier', 'customer tier'),
-    region
-        DESCRIPTION 'Geographic region of the customer'
-        SYNONYMS ('location', 'area', 'geography'),
+    churn.customer_id AS customer_id,
+    churn.customer_name AS customer_name,
+    churn.customer_segment AS customer_segment,
+    churn.region AS region,
     
     -- Risk classification
-    risk_tier
-        DESCRIPTION 'Risk level: LOW (0-25), MEDIUM (26-50), HIGH (51-75), CRITICAL (76+)'
-        SYNONYMS ('risk level', 'risk category', 'churn tier'),
-    primary_risk_driver
-        DESCRIPTION 'Main factor driving the churn risk score'
-        SYNONYMS ('risk reason', 'churn driver', 'main risk factor'),
-    recommended_intervention
-        DESCRIPTION 'Suggested action to retain the customer'
-        SYNONYMS ('action', 'intervention', 'recommendation', 'next best action'),
+    churn.risk_tier AS risk_tier,
+    churn.primary_risk_driver AS primary_risk_driver,
+    churn.recommended_intervention AS recommended_intervention,
+    churn.intervention_priority AS intervention_priority,
+    
+    -- Flags
+    churn.declining_balance_flag AS declining_balance_flag,
+    churn.reduced_activity_flag AS reduced_activity_flag,
+    churn.low_engagement_flag AS low_engagement_flag,
+    churn.complaint_flag AS complaint_flag,
+    churn.dormancy_flag AS dormancy_flag,
+    churn.has_unresolved_complaint AS has_unresolved_complaint,
     
     -- Time
-    data_as_of_date
-        DESCRIPTION 'Business date of the source data'
-        SYNONYMS ('date', 'as of date', 'report date')
-)
-MEASURES (
-    -- Risk metrics
-    churn_risk_score
-        DESCRIPTION 'Churn probability score from 0 (lowest risk) to 100 (highest risk)'
-        SYNONYMS ('risk score', 'churn score', 'churn probability')
-        AGGREGATION AVG,
-    
-    total_customers
-        EXPR COUNT(DISTINCT customer_id)
-        DESCRIPTION 'Total number of customers'
-        SYNONYMS ('customer count', 'number of customers'),
-    
-    high_risk_customers
-        EXPR COUNT(DISTINCT CASE WHEN risk_tier IN ('HIGH', 'CRITICAL') THEN customer_id END)
-        DESCRIPTION 'Count of customers with HIGH or CRITICAL risk tier'
-        SYNONYMS ('at risk customers', 'risky customers'),
+    churn.data_as_of_date AS data_as_of_date,
+    churn.score_calculated_at AS score_calculated_at,
+    churn.model_version AS model_version
+  )
+  METRICS (
+    -- Risk score
+    churn.churn_risk_score AS avg_churn_risk_score AGGREGATE BY AVG,
+    churn.churn_risk_score AS total_risk_exposure AGGREGATE BY SUM,
     
     -- Relationship metrics
-    total_relationship_value
-        EXPR SUM(total_relationship_balance)
-        DESCRIPTION 'Sum of all customer balances in GBP'
-        SYNONYMS ('total balance', 'AUM', 'assets under management'),
-    
-    avg_tenure_months
-        EXPR AVG(relationship_tenure_months)
-        DESCRIPTION 'Average customer relationship length in months'
-        SYNONYMS ('average tenure', 'avg relationship length'),
+    churn.relationship_tenure_months AS avg_tenure_months AGGREGATE BY AVG,
+    churn.total_products_held AS avg_products_held AGGREGATE BY AVG,
+    churn.total_relationship_balance AS total_balance AGGREGATE BY SUM,
+    churn.primary_account_balance AS avg_primary_balance AGGREGATE BY AVG,
     
     -- Behavioral metrics
-    avg_digital_engagement
-        EXPR AVG(digital_engagement_score)
-        DESCRIPTION 'Average digital engagement score across customers'
-        SYNONYMS ('engagement score', 'digital score'),
+    churn.avg_monthly_transactions_3m AS avg_transactions AGGREGATE BY AVG,
+    churn.digital_engagement_score AS avg_digital_engagement AGGREGATE BY AVG,
+    churn.days_since_last_transaction AS avg_days_inactive AGGREGATE BY AVG,
+    churn.login_count_30d AS avg_logins AGGREGATE BY AVG,
     
-    dormant_customers
-        EXPR COUNT(DISTINCT CASE WHEN dormancy_flag = TRUE THEN customer_id END)
-        DESCRIPTION 'Count of customers showing dormancy signals'
-        SYNONYMS ('inactive customers', 'dormant accounts')
-)
-FILTERS (
-    high_risk_only
-        EXPR risk_tier IN ('HIGH', 'CRITICAL')
-        DESCRIPTION 'Filter to show only HIGH and CRITICAL risk customers',
-    
-    requires_intervention
-        EXPR recommended_intervention != 'NO_ACTION'
-        DESCRIPTION 'Filter to show customers requiring some intervention',
-    
-    affluent_segment
-        EXPR customer_segment IN ('AFFLUENT', 'HIGH_NET_WORTH')
-        DESCRIPTION 'Filter to show only affluent and high net worth customers'
-);
+    -- Complaint metrics
+    churn.open_complaints_count AS total_open_complaints AGGREGATE BY SUM,
+    churn.complaints_last_12m AS total_complaints_12m AGGREGATE BY SUM
+  );
 
 -- Add comment to the semantic view
 COMMENT ON SEMANTIC VIEW retail_customer_churn_risk_sv IS 
 'Retail Customer Churn Risk Data Product - Semantic View for Cortex Analyst.
-Contract Version: 1.0.0 | Owner: alex.morgan@bank.com | SLA: Daily refresh by 6 AM UTC';
+Contract Version: 1.0.0 | Owner: alex.morgan@bank.com | SLA: Daily refresh by 6 AM UTC
+
+Example questions:
+- What is the average churn risk score by customer segment?
+- Show me high risk customers in the South East region
+- Which regions have the most critical risk customers?
+- What is the total balance at risk for customers with complaints?';
 
 
 -- ============================================================================
@@ -293,6 +260,20 @@ ORDER BY intervention_priority, churn_risk_score DESC;
 
 
 -- ============================================================================
+-- PART 5: VERIFY SETUP
+-- ============================================================================
+
+-- Check semantic view was created
+SHOW SEMANTIC VIEWS LIKE 'retail_customer_churn_risk_sv';
+
+-- Check share was created
+SHOW SHARES LIKE 'retail_churn_risk_share';
+
+-- Check listing was created
+SHOW LISTINGS LIKE 'retail_customer_churn_risk_listing';
+
+
+-- ============================================================================
 -- SETUP COMPLETE
 -- ============================================================================
 -- Summary:
@@ -300,4 +281,9 @@ ORDER BY intervention_priority, churn_risk_score DESC;
 -- 2. Internal Marketplace listing published
 -- 3. Access roles configured
 -- 4. Sample queries provided for consumers
+--
+-- Use Cortex Analyst to ask questions like:
+-- "What is the average churn risk by segment?"
+-- "Show me critical risk customers in London"
+-- "Which risk driver affects the most customers?"
 -- ============================================================================
