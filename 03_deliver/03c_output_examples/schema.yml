@@ -1,417 +1,299 @@
 # ============================================================================
-# DBT SCHEMA: Retail Customer Churn Risk Data Product
+# SOURCES
 # ============================================================================
-# This schema file defines:
-# - Model documentation and metadata
-# - Column descriptions and data types
-# - Data quality tests
-# - Tags for governance
-# ============================================================================
-
 version: 2
-
-# ============================================================================
-# SOURCES: Upstream data dependencies
-# ============================================================================
 sources:
-  - name: raw
-    description: "Raw source data from operational systems"
-    database: RETAIL_BANKING_DB
-    schema: RAW
-    
-    tables:
-      - name: customers
-        description: "Core customer demographics and profile information"
-        columns:
-          - name: customer_id
-            description: "Unique customer identifier"
-            tests:
-              - unique
-              - not_null
-          - name: customer_name
-            description: "Full customer name (PII)"
-          - name: customer_segment
-            description: "Customer segment classification"
-            tests:
-              - accepted_values:
-                  values: ['MASS_MARKET', 'MASS_AFFLUENT', 'AFFLUENT', 'HIGH_NET_WORTH']
-          - name: region
-            description: "Geographic region"
-          - name: onboarding_date
-            description: "Date customer was onboarded"
-            tests:
-              - not_null
-          - name: kyc_status
-            description: "KYC verification status"
-        
-      - name: accounts
-        description: "Customer accounts and products"
-        columns:
-          - name: account_id
-            description: "Unique account identifier"
-            tests:
-              - unique
-              - not_null
-          - name: customer_id
-            description: "Foreign key to customers"
-            tests:
-              - not_null
-              - relationships:
-                  to: source('raw', 'customers')
-                  field: customer_id
-          - name: account_type
-            description: "Type of account"
-          - name: account_status
-            description: "Current account status"
-          - name: current_balance
-            description: "Current account balance"
-        
-      - name: transactions
-        description: "Account transaction history"
-        columns:
-          - name: txn_id
-            description: "Unique transaction identifier"
-            tests:
-              - unique
-              - not_null
-          - name: account_id
-            description: "Foreign key to accounts"
-            tests:
-              - not_null
-          - name: txn_date
-            description: "Transaction date"
-            tests:
-              - not_null
-          - name: amount
-            description: "Transaction amount"
-        
-      - name: digital_engagement
-        description: "Mobile app and online banking activity metrics"
-        columns:
-          - name: customer_id
-            description: "Foreign key to customers"
-            tests:
-              - not_null
-          - name: measurement_date
-            description: "Date of measurement"
-          - name: login_count_30d
-            description: "Login count in last 30 days"
-          - name: mobile_app_active
-            description: "Whether mobile app was used in last 30 days"
-        
-      - name: complaints
-        description: "Customer complaints and service issues"
-        columns:
-          - name: complaint_id
-            description: "Unique complaint identifier"
-            tests:
-              - unique
-              - not_null
-          - name: customer_id
-            description: "Foreign key to customers"
-            tests:
-              - not_null
-          - name: status
-            description: "Complaint status"
-          - name: severity
-            description: "Complaint severity level"
+- name: raw
+  database: RETAIL_BANKING_DB
+  schema: RAW
+  tables:
+  - name: customers
+    description: Core customer demographics and profile
+  - name: accounts
+    description: Customer accounts and products
+  - name: transactions
+    description: Account transaction history
+  - name: digital_engagement
+    description: Mobile app and online banking activity
+  - name: complaints
+    description: Customer complaints and service issues
 
 
 # ============================================================================
-# MODELS: Data product definitions
+# MODELS
 # ============================================================================
+version: 2
 models:
-  - name: retail_customer_churn_risk
-    description: |
-      # Retail Customer Churn Risk Data Product
-      
-      A governed, daily-refreshed data product providing unified churn risk 
-      scores for retail banking customers.
-      
-      ## Business Purpose
-      Combines behavioral signals, transactional patterns, and engagement data 
-      to produce explainable risk scores that power retention campaigns and 
-      branch interventions.
-      
-      ## Key Features
-      - **Churn Risk Score**: 0-100 score indicating likelihood of churn
-      - **Risk Tier**: Classification (LOW, MEDIUM, HIGH, CRITICAL)
-      - **Risk Drivers**: Explainable factors contributing to risk
-      - **Recommended Actions**: Suggested intervention strategies
-      
-      ## Usage
-      - Retention analytics team: Daily monitoring and campaign targeting
-      - Branch managers: Weekly intervention prioritization
-      - Executive reporting: Monthly churn KPIs
-      
-      ## SLA
-      - Refresh: Daily by 6 AM UTC
-      - Availability: 99.5%
-      - Query Response: < 5 seconds
-    
-    config:
-      materialized: table
-      tags: ['data_product', 'retail_banking', 'churn_risk', 'daily']
-    
-    meta:
-      owner: "sarah.mitchell@bank.com"
-      domain: "retail_banking"
-      contract_version: "1.0.0"
-      classification: "confidential"
-      sla_freshness: "Daily by 6 AM UTC"
-      sla_availability: "99.5%"
-    
-    # ========================================================================
-    # COLUMN DEFINITIONS
-    # ========================================================================
-    columns:
-      # Customer Identifiers
-      - name: customer_id
-        description: "Unique identifier for the retail customer"
-        tests:
-          - unique
-          - not_null
-        tags: ['identifier', 'business_key']
-      
-      - name: customer_name
-        description: "Full name of the customer (PII - masked for non-authorized users)"
-        tags: ['pii', 'confidential']
-        meta:
-          masking_policy: "CUSTOMER_NAME_MASK"
-      
-      - name: customer_segment
-        description: "Customer segment classification based on relationship value"
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['MASS_MARKET', 'MASS_AFFLUENT', 'AFFLUENT', 'HIGH_NET_WORTH']
-        tags: ['segment', 'classification']
-      
-      - name: region
-        description: "Geographic region of the customer"
-        tests:
-          - not_null
-        tags: ['geography']
-      
-      # Relationship Attributes
-      - name: relationship_tenure_months
-        description: "Number of months since customer onboarding"
-        tests:
-          - not_null
-          - dbt_utils.accepted_range:
-              min_value: 0
-              max_value: 600
-        tags: ['tenure', 'relationship']
-      
-      - name: total_products_held
-        description: "Count of active products held by customer"
-        tests:
-          - not_null
-        tags: ['products', 'relationship']
-      
-      - name: primary_account_balance
-        description: "Balance of primary current account in GBP"
-        tests:
-          - not_null
-        tags: ['financial', 'balance']
-      
-      - name: total_relationship_balance
-        description: "Sum of all account balances in GBP"
-        tests:
-          - not_null
-        tags: ['financial', 'balance']
-      
-      # Behavioral Signals
-      - name: avg_monthly_transactions_3m
-        description: "Average monthly transaction count over last 3 months"
-        tests:
-          - not_null
-        tags: ['behavioral', 'transactions']
-      
-      - name: transaction_trend
-        description: "Transaction volume trend direction"
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['INCREASING', 'STABLE', 'DECLINING', 'SEVERELY_DECLINING']
-        tags: ['behavioral', 'trend']
-      
-      - name: balance_trend
-        description: "Account balance trend direction"
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['INCREASING', 'STABLE', 'DECLINING', 'SEVERELY_DECLINING']
-        tags: ['behavioral', 'trend']
-      
-      - name: days_since_last_transaction
-        description: "Days since the last account transaction"
-        tests:
-          - not_null
-        tags: ['behavioral', 'dormancy']
-      
-      # Digital Engagement
-      - name: mobile_app_active
-        description: "Whether customer has used mobile app in last 30 days"
-        tests:
-          - not_null
-        tags: ['digital', 'engagement']
-      
-      - name: login_count_30d
-        description: "Number of digital banking logins in last 30 days"
-        tests:
-          - not_null
-        tags: ['digital', 'engagement']
-      
-      - name: digital_engagement_score
-        description: "Composite digital engagement score (0-100)"
-        tests:
-          - not_null
-          - dbt_utils.accepted_range:
-              min_value: 0
-              max_value: 100
-        tags: ['digital', 'score']
-      
-      # Complaints
-      - name: open_complaints_count
-        description: "Number of currently open complaints"
-        tests:
-          - not_null
-        tags: ['service', 'complaints']
-      
-      - name: complaints_last_12m
-        description: "Total complaints filed in last 12 months"
-        tests:
-          - not_null
-        tags: ['service', 'complaints']
-      
-      - name: has_unresolved_complaint
-        description: "Flag indicating unresolved complaint exists"
-        tests:
-          - not_null
-        tags: ['service', 'complaints']
-      
-      # Churn Risk Outputs
-      - name: churn_risk_score
-        description: |
-          Calculated churn risk score (0-100, higher = more risk).
-          Based on multiple factors including balance trends, activity levels,
-          digital engagement, and complaint history.
-        tests:
-          - not_null
-          - dbt_utils.accepted_range:
-              min_value: 0
-              max_value: 100
-        tags: ['output', 'risk_score', 'primary']
-      
-      - name: risk_tier
-        description: |
-          Risk categorization based on score thresholds:
-          - LOW: 0-25
-          - MEDIUM: 26-50
-          - HIGH: 51-75
-          - CRITICAL: 76-100
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
-        tags: ['output', 'classification']
-      
-      # Risk Drivers (Explainability)
-      - name: declining_balance_flag
-        description: "Significant balance decline detected"
-        tests:
-          - not_null
-        tags: ['risk_driver', 'explainability']
-      
-      - name: reduced_activity_flag
-        description: "Reduced transaction activity detected"
-        tests:
-          - not_null
-        tags: ['risk_driver', 'explainability']
-      
-      - name: low_engagement_flag
-        description: "Low digital engagement detected"
-        tests:
-          - not_null
-        tags: ['risk_driver', 'explainability']
-      
-      - name: complaint_flag
-        description: "Recent or unresolved complaint exists"
-        tests:
-          - not_null
-        tags: ['risk_driver', 'explainability']
-      
-      - name: dormancy_flag
-        description: "Account showing dormancy signals"
-        tests:
-          - not_null
-        tags: ['risk_driver', 'explainability']
-      
-      - name: primary_risk_driver
-        description: "The most significant factor contributing to churn risk"
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['BALANCE_DECLINE', 'ACTIVITY_REDUCTION', 'LOW_ENGAGEMENT', 
-                       'COMPLAINTS', 'DORMANCY', 'MULTI_FACTOR', 'NONE']
-        tags: ['output', 'explainability']
-      
-      - name: risk_drivers_json
-        description: "JSON object containing all contributing risk factors with details"
-        tests:
-          - not_null
-        tags: ['output', 'explainability', 'json']
-      
-      # Recommended Actions
-      - name: recommended_intervention
-        description: |
-          Suggested retention intervention based on risk profile:
-          - NO_ACTION: Low risk, no intervention needed
-          - DIGITAL_ENGAGEMENT: Encourage app usage
-          - BRANCH_MEETING: Schedule in-person review
-          - RELATIONSHIP_CALL: Proactive outreach call
-          - RETENTION_OFFER: Special retention offer
-          - URGENT_ESCALATION: Immediate senior attention
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['NO_ACTION', 'DIGITAL_ENGAGEMENT', 'RELATIONSHIP_CALL', 
-                       'BRANCH_MEETING', 'RETENTION_OFFER', 'URGENT_ESCALATION']
-        tags: ['output', 'recommendation']
-      
-      - name: intervention_priority
-        description: "Priority ranking for intervention (1=highest priority)"
-        tests:
-          - not_null
-          - accepted_values:
-              values: [1, 2, 3, 4]
-        tags: ['output', 'priority']
-      
-      # Metadata
-      - name: score_calculated_at
-        description: "Timestamp when churn score was calculated"
-        tests:
-          - not_null
-        tags: ['metadata', 'audit']
-      
-      - name: data_as_of_date
-        description: "Business date of the source data"
-        tests:
-          - not_null
-        tags: ['metadata', 'audit']
-      
-      - name: model_version
-        description: "Version of the churn risk model used"
-        tests:
-          - not_null
-        tags: ['metadata', 'version']
-
-
-# ============================================================================
-# DATA QUALITY TESTS
-# ============================================================================
-
-  # Additional custom tests can be defined here
-  # These enforce the business rules from the data contract
-
+- name: retail_customer_churn_risk
+  description: "A governed, daily-refreshed data product providing unified churn risk\
+    \ \nscores for retail banking customers. Combines behavioral signals, \ntransactional\
+    \ patterns, and engagement data to produce explainable \nrisk scores that power\
+    \ retention campaigns and branch interventions.\n"
+  config:
+    materialized: table
+    tags:
+    - data_product
+    - generated_from_contract
+  meta:
+    owner: sarah.mitchell@bank.com
+    sla: Data updated daily by 6 AM UTC
+    contract_version: 1.0.0
+  columns:
+  - name: customer_id
+    description: Unique identifier for the retail customer
+    tests:
+    - unique
+    - not_null
+    tags:
+    - identifier
+    - customer
+    - business_key
+  - name: customer_name
+    description: Full name of the customer
+    tests:
+    - not_null
+    tags:
+    - pii
+    - customer
+    - name
+  - name: customer_segment
+    description: Customer segment classification
+    tests:
+    - not_null
+    tags:
+    - customer
+    - segment
+    - classification
+  - name: region
+    description: Geographic region of the customer
+    tests:
+    - not_null
+    tags:
+    - customer
+    - geography
+  - name: relationship_tenure_months
+    description: Number of months since customer onboarding
+    tests:
+    - not_null
+    tags:
+    - customer
+    - tenure
+    - relationship
+  - name: total_products_held
+    description: Count of active products held by customer
+    tests:
+    - not_null
+    tags:
+    - customer
+    - products
+    - relationship
+  - name: primary_account_balance
+    description: Balance of primary current account in GBP
+    tests:
+    - not_null
+    tags:
+    - financial
+    - balance
+    - account
+  - name: total_relationship_balance
+    description: Sum of all account balances in GBP
+    tests:
+    - not_null
+    tags:
+    - financial
+    - balance
+    - relationship
+  - name: avg_monthly_transactions_3m
+    description: Average monthly transaction count over last 3 months
+    tests:
+    - not_null
+    tags:
+    - behavioral
+    - transactions
+    - activity
+  - name: transaction_trend
+    description: Transaction volume trend direction
+    tests:
+    - not_null
+    tags:
+    - behavioral
+    - trend
+    - indicator
+  - name: balance_trend
+    description: Account balance trend direction
+    tests:
+    - not_null
+    tags:
+    - behavioral
+    - trend
+    - indicator
+  - name: days_since_last_transaction
+    description: Days since the last account transaction
+    tests:
+    - not_null
+    tags:
+    - behavioral
+    - dormancy
+    - activity
+  - name: mobile_app_active
+    description: Whether customer has used mobile app in last 30 days
+    tests:
+    - not_null
+    tags:
+    - digital
+    - engagement
+    - mobile
+  - name: login_count_30d
+    description: Number of digital banking logins in last 30 days
+    tests:
+    - not_null
+    tags:
+    - digital
+    - engagement
+    - activity
+  - name: digital_engagement_score
+    description: Composite digital engagement score (0-100)
+    tests:
+    - not_null
+    tags:
+    - digital
+    - engagement
+    - score
+  - name: open_complaints_count
+    description: Number of currently open complaints
+    tests:
+    - not_null
+    tags:
+    - service
+    - complaints
+    - risk_factor
+  - name: complaints_last_12m
+    description: Total complaints filed in last 12 months
+    tests:
+    - not_null
+    tags:
+    - service
+    - complaints
+    - history
+  - name: has_unresolved_complaint
+    description: Flag indicating unresolved complaint exists
+    tests:
+    - not_null
+    tags:
+    - service
+    - complaints
+    - risk_flag
+  - name: churn_risk_score
+    description: Calculated churn risk score (0-100, higher = more risk)
+    tests:
+    - not_null
+    tags:
+    - output
+    - risk_score
+    - churn
+    - primary
+  - name: risk_tier
+    description: Risk categorization based on score thresholds
+    tests:
+    - not_null
+    tags:
+    - output
+    - risk_tier
+    - churn
+    - classification
+  - name: declining_balance_flag
+    description: Significant balance decline detected
+    tests:
+    - not_null
+    tags:
+    - risk_driver
+    - explainability
+    - balance
+  - name: reduced_activity_flag
+    description: Reduced transaction activity detected
+    tests:
+    - not_null
+    tags:
+    - risk_driver
+    - explainability
+    - activity
+  - name: low_engagement_flag
+    description: Low digital engagement detected
+    tests:
+    - not_null
+    tags:
+    - risk_driver
+    - explainability
+    - engagement
+  - name: complaint_flag
+    description: Recent or unresolved complaint exists
+    tests:
+    - not_null
+    tags:
+    - risk_driver
+    - explainability
+    - complaints
+  - name: dormancy_flag
+    description: Account showing dormancy signals
+    tests:
+    - not_null
+    tags:
+    - risk_driver
+    - explainability
+    - dormancy
+  - name: primary_risk_driver
+    description: The most significant factor contributing to churn risk
+    tests:
+    - not_null
+    tags:
+    - output
+    - explainability
+    - primary_driver
+  - name: risk_drivers_json
+    description: JSON object of all contributing risk factors with details
+    tests:
+    - not_null
+    tags:
+    - output
+    - explainability
+    - drivers_detail
+  - name: recommended_intervention
+    description: Suggested retention intervention based on risk profile
+    tests:
+    - not_null
+    tags:
+    - output
+    - recommendation
+    - action
+  - name: intervention_priority
+    description: Priority ranking for intervention (1=highest)
+    tests:
+    - not_null
+    tags:
+    - output
+    - priority
+    - action
+  - name: score_calculated_at
+    description: Timestamp when churn score was calculated
+    tests:
+    - not_null
+    tags:
+    - metadata
+    - audit
+    - timestamp
+  - name: data_as_of_date
+    description: Business date of the source data
+    tests:
+    - not_null
+    tags:
+    - metadata
+    - audit
+    - date
+  - name: model_version
+    description: Version of the churn risk model used
+    tests:
+    - not_null
+    tags:
+    - metadata
+    - model
+    - version
