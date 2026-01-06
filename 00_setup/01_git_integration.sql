@@ -6,7 +6,7 @@
 --
 -- Prerequisites:
 --   - ACCOUNTADMIN role (or CREATE INTEGRATION privilege)
---   - GitHub Personal Access Token (for private repos) or public repo access
+--   - GitHub Personal Access Token (for private repos)
 --
 -- Repository: https://github.com/sfc-gh-skuppusamy/data-products-code-sample
 -- ============================================================================
@@ -15,45 +15,7 @@
 USE ROLE ACCOUNTADMIN;
 
 -- ============================================================================
--- OPTION A: PUBLIC REPOSITORY (No authentication needed)
--- ============================================================================
--- Use this if the repository is public
-
-CREATE OR REPLACE API INTEGRATION git_api_integration_public
-  API_PROVIDER = git_https_api
-  API_ALLOWED_PREFIXES = ('https://github.com/sfc-gh-skuppusamy/')
-  ENABLED = TRUE
-  COMMENT = 'Git integration for Data Products FSI code samples (public repo)';
-
--- ============================================================================
--- OPTION B: PRIVATE REPOSITORY (Requires GitHub PAT)
--- ============================================================================
--- Use this if the repository is private or you need authenticated access
--- 
--- First, create a secret with your GitHub Personal Access Token:
--- 1. Go to GitHub → Settings → Developer settings → Personal access tokens
--- 2. Generate a token with 'repo' scope
--- 3. Replace 'your-github-pat-here' below
-
-/*
--- Create a secret for GitHub authentication
-CREATE OR REPLACE SECRET git_secret
-  TYPE = password
-  USERNAME = 'sfc-gh-skuppusamy'
-  PASSWORD = 'your-github-pat-here'  -- Replace with your GitHub PAT
-  COMMENT = 'GitHub PAT for private repo access';
-
--- Create API integration for private repo
-CREATE OR REPLACE API INTEGRATION git_api_integration_private
-  API_PROVIDER = git_https_api
-  API_ALLOWED_PREFIXES = ('https://github.com/sfc-gh-skuppusamy/')
-  ALLOWED_AUTHENTICATION_SECRETS = (git_secret)
-  ENABLED = TRUE
-  COMMENT = 'Git integration for Data Products FSI code samples (private repo)';
-*/
-
--- ============================================================================
--- CREATE DATABASE AND SCHEMA FOR THE PROJECT
+-- CREATE DATABASE AND SCHEMA FIRST
 -- ============================================================================
 
 CREATE DATABASE IF NOT EXISTS RETAIL_BANKING_DB
@@ -71,70 +33,108 @@ CREATE SCHEMA IF NOT EXISTS RETAIL_BANKING_DB.MONITORING
 CREATE SCHEMA IF NOT EXISTS RETAIL_BANKING_DB.GOVERNANCE
   COMMENT = 'Git repos, contracts, and governance artifacts';
 
+USE DATABASE RETAIL_BANKING_DB;
+USE SCHEMA GOVERNANCE;
+
 -- ============================================================================
--- CREATE GIT REPOSITORY
+-- STEP A: CREATE SECRET FOR GITHUB AUTHENTICATION
+-- ============================================================================
+-- For private repositories, you need a GitHub Personal Access Token (PAT)
+-- 
+-- To create a PAT:
+-- 1. Go to GitHub → Settings → Developer settings → Personal access tokens
+-- 2. Click "Generate new token (classic)"
+-- 3. Select scope: "repo" (full control of private repositories)
+-- 4. Copy the token and paste below
+--
+-- IMPORTANT: Replace 'YOUR_GITHUB_PAT_HERE' with your actual token
+-- ============================================================================
+
+CREATE OR REPLACE SECRET git_secret
+  TYPE = password
+  USERNAME = 'sfc-gh-skuppusamy'
+  PASSWORD = 'YOUR_GITHUB_PAT_HERE'  -- <-- REPLACE THIS WITH YOUR PAT
+  COMMENT = 'GitHub PAT for private repo access';
+
+-- ============================================================================
+-- STEP B: CREATE API INTEGRATION
+-- ============================================================================
+-- This integration allows Snowflake to connect to GitHub
+
+CREATE OR REPLACE API INTEGRATION git_api_integration
+  API_PROVIDER = git_https_api
+  API_ALLOWED_PREFIXES = ('https://github.com/sfc-gh-skuppusamy/')
+  ALLOWED_AUTHENTICATION_SECRETS = (git_secret)
+  ENABLED = TRUE
+  COMMENT = 'Git integration for Data Products FSI code samples';
+
+-- ============================================================================
+-- STEP C: CREATE GIT REPOSITORY
 -- ============================================================================
 -- This creates a connection to the GitHub repository
 
-USE SCHEMA RETAIL_BANKING_DB.GOVERNANCE;
-
 CREATE OR REPLACE GIT REPOSITORY data_products_repo
-  API_INTEGRATION = git_api_integration_public
+  API_INTEGRATION = git_api_integration
+  GIT_CREDENTIALS = git_secret
   ORIGIN = 'https://github.com/sfc-gh-skuppusamy/data-products-code-sample.git'
   COMMENT = 'Data Products for FSI code samples repository';
 
 -- ============================================================================
--- VERIFY THE REPOSITORY CONNECTION
+-- STEP D: FETCH AND VERIFY
 -- ============================================================================
-
--- List branches
-SHOW GIT BRANCHES IN data_products_repo;
 
 -- Fetch latest changes from remote
 ALTER GIT REPOSITORY data_products_repo FETCH;
 
+-- List branches
+SHOW GIT BRANCHES IN data_products_repo;
+
 -- List files in the repository
-SELECT * FROM TABLE(
-  SNOWFLAKE.CORE.LIST_STAGE_CONTENTS(
-    STAGE_URL => '@data_products_repo/branches/main/'
-  )
-);
+LS @data_products_repo/branches/main/;
 
 -- ============================================================================
 -- VIEW REPOSITORY CONTENTS
 -- ============================================================================
-
--- List all files in the main branch
-LS @data_products_repo/branches/main/;
 
 -- View specific folders
 LS @data_products_repo/branches/main/00_setup/;
 LS @data_products_repo/branches/main/01_discover/;
 LS @data_products_repo/branches/main/02_design/;
 LS @data_products_repo/branches/main/03_deliver/;
-LS @data_products_repo/branches/main/04_operate/;
-LS @data_products_repo/branches/main/05_refine/;
 
 -- ============================================================================
--- GRANT ACCESS TO OTHER ROLES (Optional)
+-- TROUBLESHOOTING
 -- ============================================================================
+/*
+If you get "Operation 'clone' is not authorized":
 
--- Grant usage on the Git repository to other roles
--- GRANT USAGE ON GIT REPOSITORY data_products_repo TO ROLE DATA_ENGINEER;
--- GRANT USAGE ON GIT REPOSITORY data_products_repo TO ROLE DATA_ANALYST;
+1. Make sure the secret has the correct PAT:
+   ALTER SECRET git_secret SET PASSWORD = 'your-new-pat';
+
+2. Make sure the PAT has 'repo' scope in GitHub
+
+3. Verify the integration references the secret:
+   DESCRIBE API INTEGRATION git_api_integration;
+
+4. Check network policies allow GitHub access:
+   SHOW NETWORK POLICIES;
+
+5. Try recreating in order: secret → integration → repository
+*/
 
 -- ============================================================================
--- NEXT STEPS
+-- CLEANUP (if needed to start over)
 -- ============================================================================
--- Run the following scripts in order:
---   1. 00_setup/02_run_setup_from_git.sql   - Execute all setup scripts
---   2. Or run individual scripts:
---      - 03_deliver/03a_create_sample_data.sql
---      - 03_deliver/03c_output_examples/retail_customer_churn_risk.sql
---      - etc.
+/*
+DROP GIT REPOSITORY IF EXISTS data_products_repo;
+DROP API INTEGRATION IF EXISTS git_api_integration;
+DROP SECRET IF EXISTS git_secret;
+*/
+
+-- ============================================================================
+-- SUCCESS MESSAGE
 -- ============================================================================
 
 SELECT 'Git integration setup complete!' AS status,
        'Repository connected: data_products_repo' AS message,
        'Run: LS @data_products_repo/branches/main/' AS next_step;
-
