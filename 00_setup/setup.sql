@@ -591,11 +591,14 @@ SELECT '✅ Step 4 Complete: All sample data created and optimized' AS status;
 --
 -- ============================================================================
 
--- === OPTION A: Run this after uploading .py file to stage ===
+-- ============================================================================
+-- OPTION A ONLY: Run the SQL below after uploading .py file to stage
+-- (If you used Option B, skip to Step 6)
+-- ============================================================================
 
 USE SCHEMA RETAIL_BANKING_DB.GOVERNANCE;
 
--- Verify the file exists in the stage
+-- Verify the file exists in the stage (should show 01_dbt_generator_app.py)
 LIST @RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps;
 
 -- Create the Streamlit app from the staged file
@@ -609,7 +612,12 @@ CREATE OR REPLACE STREAMLIT dbt_code_generator
 -- Grant access to all users
 GRANT USAGE ON STREAMLIT dbt_code_generator TO ROLE PUBLIC;
 
-SELECT '✅ Step 5 Complete: Streamlit app deployed' AS status;
+SELECT '✅ Step 5 Complete: Streamlit app deployed (Option A)' AS status;
+
+-- ============================================================================
+-- OPTION B: If you created the app directly in Snowsight, you're done!
+-- Just continue to Step 6 below.
+-- ============================================================================
 
 
 -- ============================================================================
