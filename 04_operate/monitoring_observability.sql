@@ -20,13 +20,25 @@ USE SCHEMA MONITORING;
 
 
 -- ============================================================================
--- PART 1: SNOWFLAKE NATIVE DATA METRIC FUNCTIONS (DMFs)
+-- PART 1: SET SCHEDULE FIRST (REQUIRED BEFORE ADDING DMFs)
+-- ============================================================================
+-- IMPORTANT: Schedule must exist before associating DMFs to the table
+-- ============================================================================
+
+-- Set monitoring schedule - DMFs run automatically per schedule
+ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    SET DATA_METRIC_SCHEDULE = 'TRIGGER_ON_CHANGES';
+    -- Alternative: 'USING CRON 0 6,18 * * * UTC' for twice daily at 6AM and 6PM
+
+
+-- ============================================================================
+-- PART 2: SNOWFLAKE NATIVE DATA METRIC FUNCTIONS (DMFs)
 -- ============================================================================
 -- System DMFs: NULL_COUNT, DUPLICATE_COUNT, UNIQUE_COUNT, FRESHNESS, ROW_COUNT
 -- These run automatically when scheduled and store results in INFORMATION_SCHEMA
 -- ============================================================================
 
--- 1a. Apply System DMF: NULL_COUNT on critical columns
+-- 2a. Apply System DMF: NULL_COUNT on critical columns
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT 
     ON (customer_id);
@@ -39,12 +51,12 @@ ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT 
     ON (risk_tier);
 
--- 1b. Apply System DMF: DUPLICATE_COUNT on primary key
+-- 2b. Apply System DMF: DUPLICATE_COUNT on primary key
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.DUPLICATE_COUNT 
     ON (customer_id);
 
--- 1c. Apply System DMF: UNIQUE_COUNT for cardinality
+-- 2c. Apply System DMF: UNIQUE_COUNT for cardinality
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.UNIQUE_COUNT 
     ON (customer_id);
@@ -53,24 +65,24 @@ ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.UNIQUE_COUNT 
     ON (risk_tier);
 
--- 1d. Apply System DMF: FRESHNESS on timestamp column
+-- 2d. Apply System DMF: FRESHNESS on timestamp column
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.FRESHNESS 
     ON (score_calculated_at);
 
--- 1e. Apply System DMF: ROW_COUNT for completeness
+-- 2e. Apply System DMF: ROW_COUNT for completeness
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.ROW_COUNT 
     ON ();
 
 
 -- ============================================================================
--- PART 2: CUSTOM DATA METRIC FUNCTIONS
+-- PART 3: CUSTOM DATA METRIC FUNCTIONS
 -- ============================================================================
 -- Create custom DMFs for business-specific quality rules
 -- ============================================================================
 
--- 2a. Custom DMF: Risk Score Range Validation (0-100)
+-- 3a. Custom DMF: Risk Score Range Validation (0-100)
 CREATE OR REPLACE DATA METRIC FUNCTION risk_score_out_of_range(
     ARG_T TABLE(ARG_C NUMBER)
 )
@@ -87,7 +99,7 @@ ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION MONITORING.risk_score_out_of_range 
     ON (churn_risk_score);
 
--- 2b. Custom DMF: Risk Tier Misalignment
+-- 3b. Custom DMF: Risk Tier Misalignment
 CREATE OR REPLACE DATA METRIC FUNCTION risk_tier_misalignment(
     ARG_T TABLE(score NUMBER, tier VARCHAR)
 )
@@ -109,7 +121,7 @@ ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION MONITORING.risk_tier_misalignment 
     ON (churn_risk_score, risk_tier);
 
--- 2c. Custom DMF: Invalid Risk Tier Values
+-- 3c. Custom DMF: Invalid Risk Tier Values
 CREATE OR REPLACE DATA METRIC FUNCTION invalid_risk_tier(
     ARG_T TABLE(ARG_C VARCHAR)
 )
@@ -126,7 +138,7 @@ ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION MONITORING.invalid_risk_tier 
     ON (risk_tier);
 
--- 2d. Custom DMF: High Risk Percentage (business threshold)
+-- 3d. Custom DMF: High Risk Percentage (business threshold)
 CREATE OR REPLACE DATA METRIC FUNCTION high_risk_percentage(
     ARG_T TABLE(ARG_C VARCHAR)
 )
@@ -148,18 +160,6 @@ ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
 
 
 -- ============================================================================
--- PART 3: SCHEDULE DATA QUALITY MONITORING
--- ============================================================================
--- Set monitoring schedule - DMFs run automatically per schedule
--- ============================================================================
-
--- Schedule DMF evaluation (runs every 12 hours)
-ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
-    SET DATA_METRIC_SCHEDULE = 'TRIGGER_ON_CHANGES';
-    -- Alternative: 'USING CRON 0 6,18 * * * UTC' for twice daily at 6AM and 6PM
-
-
--- ============================================================================
 -- PART 4: VIEW DMF RESULTS FROM INFORMATION_SCHEMA
 -- ============================================================================
 -- Query built-in views for DMF results
@@ -172,7 +172,7 @@ SELECT
     metric_schema_name,
     metric_name,
     ref_entity_name AS table_name,
-    ref_column_names AS columns,
+    ref_arguments AS columns,
     schedule,
     schedule_status
 FROM TABLE(
@@ -186,10 +186,10 @@ FROM TABLE(
 CREATE OR REPLACE VIEW data_quality_results AS
 SELECT 
     measurement_time,
-    metric_database_name || '.' || metric_schema_name || '.' || metric_name AS metric_full_name,
+    metric_database || '.' || metric_schema || '.' || metric_name AS metric_full_name,
     metric_name,
-    table_database_name || '.' || table_schema_name || '.' || table_name AS table_full_name,
-    column_names,
+    table_database || '.' || table_schema || '.' || table_name AS table_full_name,
+    argument_names AS column_names,
     value AS metric_value,
     CASE 
         -- System DMFs - interpret results
@@ -212,7 +212,7 @@ ORDER BY measurement_time DESC;
 CREATE OR REPLACE VIEW data_quality_summary AS
 SELECT 
     metric_name,
-    column_names,
+    argument_names AS column_names,
     value AS latest_value,
     measurement_time AS last_checked,
     CASE 
@@ -228,7 +228,7 @@ SELECT
     END AS interpretation
 FROM SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_RESULTS
 WHERE table_name = 'RETAIL_CUSTOMER_CHURN_RISK'
-QUALIFY ROW_NUMBER() OVER (PARTITION BY metric_name, column_names ORDER BY measurement_time DESC) = 1;
+QUALIFY ROW_NUMBER() OVER (PARTITION BY metric_name, argument_names ORDER BY measurement_time DESC) = 1;
 
 
 -- ============================================================================
