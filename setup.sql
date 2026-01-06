@@ -5,16 +5,16 @@
 -- 1. Database, schemas, warehouse
 -- 2. Sample data (5 source tables, 10K customers)
 -- 3. Stages for contracts and Streamlit app
--- 4. Streamlit dbt Generator app deployed
--- 5. Data contract uploaded to stage
+-- 4. Upload files to stages (SnowSQL only)
+-- 5. Streamlit dbt Generator app deployed
 --
 -- PREREQUISITES:
 -- - Snowflake account with ACCOUNTADMIN role
--- - SnowSQL or Snowsight access
+-- - SnowSQL CLI (for PUT commands)
 --
--- USAGE:
--- Option 1 (SnowSQL): snowsql -f setup.sql
--- Option 2 (Snowsight): Open this file and run all
+-- USAGE (must use SnowSQL for file uploads):
+--   cd data-products-lifecycle-fsi-example
+--   snowsql -f setup.sql
 -- ============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -40,7 +40,7 @@ CREATE WAREHOUSE IF NOT EXISTS COMPUTE_WH
 
 USE WAREHOUSE COMPUTE_WH;
 
-PRINT '✅ Step 1 Complete: Database and schemas created';
+SELECT '✅ Step 1 Complete: Database and schemas created' AS status;
 
 
 -- ============================================================================
@@ -59,7 +59,7 @@ CREATE STAGE IF NOT EXISTS streamlit_apps
     DIRECTORY = (ENABLE = TRUE)
     COMMENT = 'Stage for Streamlit application files';
 
-PRINT '✅ Step 2 Complete: Stages created';
+SELECT '✅ Step 2 Complete: Stages created' AS status;
 
 
 -- ============================================================================
@@ -139,7 +139,7 @@ CREATE OR REPLACE TABLE COMPLAINTS (
     created_at          TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
 );
 
-PRINT '✅ Step 3a Complete: Tables created';
+SELECT '✅ Step 3a Complete: Tables created' AS status;
 
 -- Populate CUSTOMERS (10,000 customers)
 INSERT INTO CUSTOMERS (customer_id, customer_name, email, phone, date_of_birth, 
@@ -184,7 +184,7 @@ SELECT
     END AS preferred_channel
 FROM TABLE(GENERATOR(ROWCOUNT => 10000));
 
-PRINT '✅ Step 3b Complete: 10,000 customers created';
+SELECT '✅ Step 3b Complete: 10,000 customers created' AS status;
 
 -- Populate ACCOUNTS (~25,000 accounts)
 INSERT INTO ACCOUNTS (account_id, customer_id, account_type, account_status, 
@@ -211,7 +211,7 @@ FROM CUSTOMERS c
 CROSS JOIN (SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3) r
 WHERE UNIFORM(1, 10, RANDOM()) <= 8;
 
-PRINT '✅ Step 3c Complete: ~25,000 accounts created';
+SELECT '✅ Step 3c Complete: ~25,000 accounts created' AS status;
 
 -- Populate DIGITAL_ENGAGEMENT (one per customer)
 INSERT INTO DIGITAL_ENGAGEMENT (engagement_id, customer_id, measurement_date, 
@@ -237,7 +237,7 @@ SELECT
 FROM CUSTOMERS
 WHERE kyc_status = 'VERIFIED';
 
-PRINT '✅ Step 3d Complete: Digital engagement data created';
+SELECT '✅ Step 3d Complete: Digital engagement data created' AS status;
 
 -- Populate COMPLAINTS (~2,000 complaints)
 INSERT INTO COMPLAINTS (complaint_id, customer_id, complaint_date, category,
@@ -271,40 +271,35 @@ SELECT
 FROM CUSTOMERS
 WHERE UNIFORM(1, 100, RANDOM()) <= 20;
 
-PRINT '✅ Step 3e Complete: ~2,000 complaints created';
-PRINT '✅ Step 3 Complete: All sample data created';
+SELECT '✅ Step 3e Complete: ~2,000 complaints created' AS status;
+SELECT '✅ Step 3 Complete: All sample data created' AS status;
 
 
 -- ============================================================================
--- STEP 4: UPLOAD FILES TO STAGES
+-- STEP 4: UPLOAD FILES TO STAGES (SnowSQL only)
 -- ============================================================================
-/*
-IMPORTANT: After running this script, upload these files using Snowsight or SnowSQL:
+-- These PUT commands only work in SnowSQL, not Snowsight
 
-Using Snowsight (Web UI):
-1. Go to Data → Databases → RETAIL_BANKING_DB → GOVERNANCE → Stages
-2. Click "DATA_CONTRACTS" → "+ Files" → Upload:
-   - 02_design/churn_risk_data_contract.yaml
-3. Click "STREAMLIT_APPS" → "+ Files" → Upload:
-   - 03_deliver/01_dbt_generator_app.py
+!print '📤 Step 4: Uploading files to stages...'
 
-Using SnowSQL:
 PUT file://02_design/churn_risk_data_contract.yaml @RETAIL_BANKING_DB.GOVERNANCE.data_contracts AUTO_COMPRESS=FALSE OVERWRITE=TRUE;
 PUT file://03_deliver/01_dbt_generator_app.py @RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps AUTO_COMPRESS=FALSE OVERWRITE=TRUE;
-*/
 
-PRINT '⚠️  Step 4: MANUAL ACTION REQUIRED';
-PRINT '    Upload these files to stages (see instructions above):';
-PRINT '    - 02_design/churn_risk_data_contract.yaml → @GOVERNANCE.data_contracts';
-PRINT '    - 03_deliver/01_dbt_generator_app.py → @GOVERNANCE.streamlit_apps';
+-- Refresh directory
+ALTER STAGE RETAIL_BANKING_DB.GOVERNANCE.data_contracts REFRESH;
+ALTER STAGE RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps REFRESH;
+
+-- Verify uploads
+SELECT '✅ Step 4 Complete: Files uploaded to stages' AS status;
+LIST @RETAIL_BANKING_DB.GOVERNANCE.data_contracts;
+LIST @RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps;
 
 
 -- ============================================================================
 -- STEP 5: CREATE STREAMLIT APP
 -- ============================================================================
--- Run this AFTER uploading the Python file to stage
 
-USE SCHEMA GOVERNANCE;
+USE SCHEMA RETAIL_BANKING_DB.GOVERNANCE;
 
 CREATE OR REPLACE STREAMLIT dbt_code_generator
     ROOT_LOCATION = '@RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps'
@@ -316,40 +311,39 @@ CREATE OR REPLACE STREAMLIT dbt_code_generator
 -- Grant access
 GRANT USAGE ON STREAMLIT dbt_code_generator TO ROLE PUBLIC;
 
-PRINT '✅ Step 5 Complete: Streamlit app created';
-PRINT '    Open app at: https://app.snowflake.com → Projects → Streamlit → dbt_code_generator';
+SELECT '✅ Step 5 Complete: Streamlit app created' AS status;
 
 
 -- ============================================================================
 -- STEP 6: VERIFY SETUP
 -- ============================================================================
 
-PRINT '';
-PRINT '============================================================';
-PRINT '                    SETUP COMPLETE!                          ';
-PRINT '============================================================';
-PRINT '';
-PRINT 'What was created:';
-PRINT '  ✅ Database: RETAIL_BANKING_DB';
-PRINT '  ✅ Schemas: RAW, DATA_PRODUCTS, GOVERNANCE, MONITORING';
-PRINT '  ✅ Sample Data: 10K customers, 25K accounts, 2K complaints';
-PRINT '  ✅ Stages: data_contracts, streamlit_apps';
-PRINT '  ✅ Streamlit App: dbt_code_generator';
-PRINT '';
-PRINT 'NEXT STEPS:';
-PRINT '  1. Upload files to stages (see Step 4 above)';
-PRINT '  2. Open Streamlit app and select contract from stage';
-PRINT '  3. Generate dbt model code';
-PRINT '  4. Run generated SQL to create data product table';
-PRINT '  5. Run: 03_deliver/02_generated_output/masking_policies.sql';
-PRINT '  6. Run: 03_deliver/03_semantic_view_marketplace.sql';
-PRINT '  7. Run: 04_operate/monitoring_observability.sql';
-PRINT '';
-PRINT '============================================================';
+SELECT '============================================================' AS msg
+UNION ALL SELECT '                    SETUP COMPLETE!                          '
+UNION ALL SELECT '============================================================'
+UNION ALL SELECT ''
+UNION ALL SELECT 'What was created:'
+UNION ALL SELECT '  ✅ Database: RETAIL_BANKING_DB'
+UNION ALL SELECT '  ✅ Schemas: RAW, DATA_PRODUCTS, GOVERNANCE, MONITORING'
+UNION ALL SELECT '  ✅ Sample Data: 10K customers, 25K accounts, 2K complaints'
+UNION ALL SELECT '  ✅ Stages: data_contracts, streamlit_apps'
+UNION ALL SELECT '  ✅ Files uploaded: contract YAML, Streamlit app'
+UNION ALL SELECT '  ✅ Streamlit App: dbt_code_generator'
+UNION ALL SELECT ''
+UNION ALL SELECT 'NEXT STEPS:'
+UNION ALL SELECT '  1. Open Streamlit app: Snowsight → Projects → Streamlit'
+UNION ALL SELECT '  2. Select contract from stage dropdown'
+UNION ALL SELECT '  3. Generate dbt model code'
+UNION ALL SELECT '  4. Run generated SQL to create data product table'
+UNION ALL SELECT '  5. Run: 03_deliver/02_generated_output/masking_policies.sql'
+UNION ALL SELECT '  6. Run: 03_deliver/03_semantic_view_marketplace.sql'
+UNION ALL SELECT '  7. Run: 04_operate/monitoring_observability.sql'
+UNION ALL SELECT ''
+UNION ALL SELECT '============================================================';
 
 -- Show table counts
-SELECT 'CUSTOMERS' AS table_name, COUNT(*) AS row_count FROM RAW.CUSTOMERS
-UNION ALL SELECT 'ACCOUNTS', COUNT(*) FROM RAW.ACCOUNTS
-UNION ALL SELECT 'DIGITAL_ENGAGEMENT', COUNT(*) FROM RAW.DIGITAL_ENGAGEMENT
-UNION ALL SELECT 'COMPLAINTS', COUNT(*) FROM RAW.COMPLAINTS;
+SELECT 'CUSTOMERS' AS table_name, COUNT(*) AS row_count FROM RETAIL_BANKING_DB.RAW.CUSTOMERS
+UNION ALL SELECT 'ACCOUNTS', COUNT(*) FROM RETAIL_BANKING_DB.RAW.ACCOUNTS
+UNION ALL SELECT 'DIGITAL_ENGAGEMENT', COUNT(*) FROM RETAIL_BANKING_DB.RAW.DIGITAL_ENGAGEMENT
+UNION ALL SELECT 'COMPLAINTS', COUNT(*) FROM RETAIL_BANKING_DB.RAW.COMPLAINTS;
 
