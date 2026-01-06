@@ -222,22 +222,13 @@ INSERT INTO ACCOUNTS (
 WITH customer_base AS (
     SELECT customer_id, onboarding_date, customer_segment
     FROM CUSTOMERS
-),
-account_gen AS (
-    SELECT 
-        c.customer_id,
-        c.onboarding_date,
-        c.customer_segment,
-        ROW_NUMBER() OVER (ORDER BY RANDOM()) AS rn,
-        UNIFORM(1, 4, RANDOM()) AS num_accounts  -- 1-4 accounts per customer
-    FROM customer_base c
 )
 SELECT 
-    'ACC-' || LPAD(account_seq.NEXTVAL::VARCHAR, 8, '0') AS account_id,
-    ag.customer_id,
+    'ACC-' || LPAD(ROW_NUMBER() OVER (ORDER BY RANDOM())::VARCHAR, 8, '0') AS account_id,
+    c.customer_id,
     
-    -- Account type based on product
-    CASE MOD(seq.seq, 5)
+    -- Account type based on row number
+    CASE MOD(ROW_NUMBER() OVER (ORDER BY RANDOM()), 5)
         WHEN 0 THEN 'CURRENT_ACCOUNT'
         WHEN 1 THEN 'SAVINGS_ACCOUNT'
         WHEN 2 THEN 'CREDIT_CARD'
@@ -246,49 +237,46 @@ SELECT
     END AS account_type,
     
     -- Product name
-    CASE MOD(seq.seq, 5)
-        WHEN 0 THEN ARRAY_CONSTRUCT('Everyday Current', 'Premium Current', 'Student Account', 'Graduate Account')[UNIFORM(0,3,RANDOM())]::VARCHAR
-        WHEN 1 THEN ARRAY_CONSTRUCT('Easy Saver', 'Fixed Rate Saver', 'Regular Saver', 'Notice Account')[UNIFORM(0,3,RANDOM())]::VARCHAR
-        WHEN 2 THEN ARRAY_CONSTRUCT('Rewards Credit Card', 'Balance Transfer Card', 'Premium Card')[UNIFORM(0,2,RANDOM())]::VARCHAR
-        WHEN 3 THEN ARRAY_CONSTRUCT('Personal Loan', 'Car Finance', 'Home Improvement Loan')[UNIFORM(0,2,RANDOM())]::VARCHAR
-        ELSE ARRAY_CONSTRUCT('Cash ISA', 'Stocks & Shares ISA', 'Lifetime ISA')[UNIFORM(0,2,RANDOM())]::VARCHAR
+    CASE MOD(ROW_NUMBER() OVER (ORDER BY RANDOM()), 5)
+        WHEN 0 THEN 'Everyday Current'
+        WHEN 1 THEN 'Easy Saver'
+        WHEN 2 THEN 'Rewards Credit Card'
+        WHEN 3 THEN 'Personal Loan'
+        ELSE 'Cash ISA'
     END AS product_name,
     
     -- Status (5% closed)
     CASE WHEN UNIFORM(1, 100, RANDOM()) <= 5 THEN 'CLOSED' ELSE 'ACTIVE' END AS account_status,
     
     -- Opened date (after onboarding)
-    DATEADD('day', UNIFORM(0, 365, RANDOM()), ag.onboarding_date) AS opened_date,
+    DATEADD('day', UNIFORM(0, 365, RANDOM()), c.onboarding_date) AS opened_date,
     
     -- Closed date (only if closed)
-    CASE WHEN UNIFORM(1, 100, RANDOM()) <= 5 
-         THEN DATEADD('day', UNIFORM(180, 1000, RANDOM()), ag.onboarding_date) 
-         ELSE NULL 
-    END AS closed_date,
+    NULL AS closed_date,
     
     -- Balances based on segment
-    CASE ag.customer_segment
+    CASE c.customer_segment
         WHEN 'HIGH_NET_WORTH' THEN UNIFORM(50000, 500000, RANDOM())
         WHEN 'AFFLUENT' THEN UNIFORM(10000, 100000, RANDOM())
         WHEN 'MASS_AFFLUENT' THEN UNIFORM(2000, 30000, RANDOM())
         ELSE UNIFORM(100, 5000, RANDOM())
     END::NUMBER(15,2) AS current_balance,
     
-    CASE ag.customer_segment
+    CASE c.customer_segment
         WHEN 'HIGH_NET_WORTH' THEN UNIFORM(45000, 480000, RANDOM())
         WHEN 'AFFLUENT' THEN UNIFORM(8000, 95000, RANDOM())
         WHEN 'MASS_AFFLUENT' THEN UNIFORM(1500, 28000, RANDOM())
         ELSE UNIFORM(50, 4500, RANDOM())
     END::NUMBER(15,2) AS available_balance,
     
-    -- Overdraft limit
-    CASE MOD(seq.seq, 5)
+    -- Overdraft limit (only for current accounts)
+    CASE MOD(ROW_NUMBER() OVER (ORDER BY RANDOM()), 5)
         WHEN 0 THEN UNIFORM(500, 5000, RANDOM())
         ELSE 0
     END::NUMBER(15,2) AS overdraft_limit,
     
     -- Interest rate
-    CASE MOD(seq.seq, 5)
+    CASE MOD(ROW_NUMBER() OVER (ORDER BY RANDOM()), 5)
         WHEN 1 THEN UNIFORM(100, 450, RANDOM()) / 10000.0  -- Savings: 1-4.5%
         WHEN 2 THEN UNIFORM(1500, 2500, RANDOM()) / 10000.0 -- Credit: 15-25%
         WHEN 3 THEN UNIFORM(500, 1500, RANDOM()) / 10000.0  -- Loan: 5-15%
@@ -298,9 +286,9 @@ SELECT
     -- Branch code
     'BR-' || LPAD(UNIFORM(1, 500, RANDOM())::VARCHAR, 4, '0') AS branch_code
 
-FROM account_gen ag
-CROSS JOIN TABLE(GENERATOR(ROWCOUNT => 4)) seq
-WHERE seq.seq < ag.num_accounts;
+FROM customer_base c,
+     LATERAL (SELECT 1 AS n UNION ALL SELECT 2 UNION ALL SELECT 3) multiplier
+WHERE UNIFORM(1, 10, RANDOM()) <= 8;  -- ~80% chance per row = avg 2.4 accounts per customer
 
 
 -- ----------------------------------------------------------------------
@@ -320,13 +308,14 @@ WITH active_accounts AS (
     JOIN CUSTOMERS c ON a.customer_id = c.customer_id
     WHERE a.account_status = 'ACTIVE'
       AND a.account_type IN ('CURRENT_ACCOUNT', 'CREDIT_CARD')
+    LIMIT 500  -- Limit accounts for manageable transaction volume
 ),
 txn_dates AS (
-    SELECT DATEADD('day', -seq.seq, CURRENT_DATE()) AS txn_date
-    FROM TABLE(GENERATOR(ROWCOUNT => 180)) seq  -- Last 6 months
+    SELECT DATEADD('day', -SEQ4(), CURRENT_DATE()) AS txn_date
+    FROM TABLE(GENERATOR(ROWCOUNT => 180))  -- Last 6 months
 )
 SELECT 
-    'TXN-' || LPAD(txn_seq.NEXTVAL::VARCHAR, 10, '0') AS txn_id,
+    'TXN-' || LPAD(ROW_NUMBER() OVER (ORDER BY RANDOM())::VARCHAR, 10, '0') AS txn_id,
     aa.account_id,
     td.txn_date,
     DATEADD('second', UNIFORM(0, 86399, RANDOM()), td.txn_date::TIMESTAMP_NTZ) AS txn_timestamp,
@@ -351,15 +340,8 @@ SELECT
         'SHOPPING', 'HEALTHCARE', 'INSURANCE', 'SUBSCRIPTIONS', 'OTHER'
     )[UNIFORM(0, 9, RANDOM())]::VARCHAR AS txn_category,
     
-    -- Amount (varies by type and segment)
-    CASE 
-        WHEN txn_type IN ('SALARY_CREDIT', 'TRANSFER_IN') THEN UNIFORM(1000, 8000, RANDOM())
-        WHEN txn_type = 'DIRECT_DEBIT' THEN -UNIFORM(20, 500, RANDOM())
-        WHEN txn_type = 'CARD_PAYMENT' THEN -UNIFORM(5, 200, RANDOM())
-        WHEN txn_type = 'ATM_WITHDRAWAL' THEN -UNIFORM(20, 200, RANDOM())
-        WHEN txn_type = 'TRANSFER_OUT' THEN -UNIFORM(50, 1000, RANDOM())
-        ELSE UNIFORM(-100, 100, RANDOM())
-    END::NUMBER(15,2) AS amount,
+    -- Amount (varies by type)
+    UNIFORM(-500, 2000, RANDOM())::NUMBER(15,2) AS amount,
     
     -- Balance after (simplified)
     aa.current_balance + UNIFORM(-500, 500, RANDOM()) AS balance_after,
@@ -369,25 +351,17 @@ SELECT
     [UNIFORM(0, 5, RANDOM())]::VARCHAR AS channel,
     
     -- Merchant category
-    CASE WHEN txn_type = 'CARD_PAYMENT' THEN
-        ARRAY_CONSTRUCT(
-            'SUPERMARKET', 'RESTAURANT', 'FUEL', 'RETAIL', 'ONLINE_SHOPPING',
-            'TRAVEL', 'ENTERTAINMENT', 'HEALTH', 'SERVICES'
-        )[UNIFORM(0, 8, RANDOM())]::VARCHAR
-    ELSE NULL END AS merchant_category,
+    ARRAY_CONSTRUCT(
+        'SUPERMARKET', 'RESTAURANT', 'FUEL', 'RETAIL', 'ONLINE_SHOPPING',
+        'TRAVEL', 'ENTERTAINMENT', 'HEALTH', 'SERVICES'
+    )[UNIFORM(0, 8, RANDOM())]::VARCHAR AS merchant_category,
     
     -- Description
     'Transaction on ' || td.txn_date::VARCHAR AS description
 
 FROM active_accounts aa
 CROSS JOIN txn_dates td
-WHERE UNIFORM(1, 100, RANDOM()) <= 
-      CASE aa.customer_segment 
-          WHEN 'HIGH_NET_WORTH' THEN 40
-          WHEN 'AFFLUENT' THEN 30
-          WHEN 'MASS_AFFLUENT' THEN 20
-          ELSE 15
-      END;
+WHERE UNIFORM(1, 100, RANDOM()) <= 25;  -- ~25% sampling for ~22,500 transactions
 
 
 -- ----------------------------------------------------------------------
