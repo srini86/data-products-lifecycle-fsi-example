@@ -74,7 +74,8 @@ In Snowsight: **Projects → Streamlit → + Streamlit App**
 1. Open the Streamlit app
 2. Select `churn_risk_data_contract.yaml` from stage
 3. Click **Generate All Outputs**
-4. Copy generated SQL → Run in Snowsight
+4. Copy generated DBT artefacts → Create DBT projects on Snowflake -> add files to the project, Compile and Run.
+5. Copy masking_policies.yml  -> Run in Snowsight
 
 ### Step 4: Apply Governance & Monitoring
 
@@ -82,8 +83,11 @@ Run in Snowsight:
 - `03_deliver/03_semantic_view_marketplace.sql`
 - `04_operate/monitoring_observability.sql`
 
-### Cleanup
+### Step 5: Verify the new data products created
+1. Snowsight Database Explorer -> <name pf data product>
+2. 
 
+### Cleanup
 Run `06_cleanup/cleanup.sql` to remove all resources.
 
 ---
