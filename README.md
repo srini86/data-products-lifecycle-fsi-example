@@ -24,22 +24,21 @@ This repository follows a 5-stage lifecycle for delivering data products:
 
 ## How to Use This Repo
 
-**Prerequisites:** The Discover and Design phases are complete. The data product canvas is at `01_discover/data_product_canvas.yaml` and the data contract is at `02_design/churn_risk_data_contract.yaml`. Follow the steps below to complete the **Deliver**, **Operate**, and **Refine** phases.
+**Prerequisites:** The Discover and Design phases are complete. The data product canvas (`01_discover/data_product_canvas.yaml`) and data contract (`02_design/churn_risk_data_contract.yaml`) are ready. The steps below walk through the **Deliver**, **Operate**, and **Refine** phases.
 
 ### Step 1: Setup Environment
 
-**Option A:** Clone repo locally
-```bash
-git clone https://github.com/sfc-gh-skuppusamy/data-products-code-sample
-```
+1. **Get the code** (choose one):
+   - **Option A:** Clone repo locally
+     ```bash
+     git clone https://github.com/sfc-gh-skuppusamy/data-products-code-sample
+     ```
+   - **Option B:** Snowsight → **Projects** → **Worksheets** → **Create from Git Repository**
 
-**Option B:** Create a Snowsight Worksheet from Git  
-Snowsight → **Projects** → **Worksheets** → **Create from Git Repository**
-
-Open `00_setup/setup.sql` in Snowsight:
-- Run **Steps 1–4** to create database, schemas, and sample data
-- Run **Step 5** to create the Streamlit app (follow Option A in the script)
-- Run **Step 6** to verify all assets are created
+2. **Run setup script** — Open `00_setup/setup.sql` in Snowsight:
+   - Run **Steps 1–4** to create database, schemas, and sample data
+   - Run **Step 5** to create the Streamlit app (follow Option A in the script)
+   - Run **Step 6** to verify all assets are created
 
 ### Step 2: Generate Data Product Code
 
