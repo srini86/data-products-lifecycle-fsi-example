@@ -76,8 +76,3 @@ Run `06_cleanup/cleanup.sql` to remove all resources.
 └── 06_cleanup/                     # Cleanup script
 ```
 
----
-
-## License
-
-MIT
