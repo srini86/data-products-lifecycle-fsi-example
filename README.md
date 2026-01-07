@@ -1,6 +1,6 @@
 # Data Products for Financial Services
 
-Code samples demonstrating how to build **Data Products** on Snowflake, illustrated through a **Retail Customer Churn Risk** example for banking.
+Build a production-ready **Retail Customer Churn Risk** data product on Snowflake — complete with AI-generated dbt models, masking policies, semantic views, and data quality monitoring.
 
 ---
 
@@ -83,14 +83,28 @@ Run `06_cleanup/cleanup.sql` to remove all demo resources.
 ## Folder Structure
 
 ```
-├── 00_setup/                       # Setup script (database, tables, sample data)
-├── 01_discover/                    # Data Product Canvas
+├── 00_setup/                       # One-click setup script
+├── 01_discover/                    # Data Product Canvas (HTML)
 ├── 02_design/                      # Data Contract (YAML)
-├── 03_deliver/                     # Streamlit app + generated outputs
-│   ├── 01_dbt_generator_app.py
-│   ├── 02_generated_output/        # Sample generated files
+├── 03_deliver/
+│   ├── 01_dbt_generator_app.py     # Streamlit app (Cortex AI)
+│   ├── generated_output_samples/   # Example outputs
 │   └── 03_semantic_view_marketplace.sql
-├── 04_operate/                     # Data Metric Functions & monitoring
+├── 04_operate/                     # Data Metric Functions
 ├── 05_refine/                      # Evolution example (v2 contract)
 └── 06_cleanup/                     # Cleanup script
 ```
+
+---
+
+## What Gets Created
+
+| Resource | Name | Description |
+|----------|------|-------------|
+| Database | `RETAIL_BANKING_DB` | Contains all schemas and data |
+| Warehouse | `DATA_PRODUCTS_WH` | XS warehouse for compute |
+| Source Tables | `CUSTOMERS`, `ACCOUNTS`, `TRANSACTIONS`, `DIGITAL_ENGAGEMENT`, `COMPLAINTS` | 5 raw tables with sample data |
+| Data Product | `RETAIL_CUSTOMER_CHURN_RISK` | 1,000 customers with risk scores |
+| Streamlit App | `dbt_code_generator` | AI-powered code generator |
+| Semantic View | `retail_customer_churn_risk_sv` | Enables Cortex Analyst queries |
+| DMFs | NULL_COUNT, DUPLICATE_COUNT, FRESHNESS, ROW_COUNT | Native data quality monitoring |
