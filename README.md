@@ -62,6 +62,7 @@ This repository follows a 5-stage lifecycle for delivering data products:
    - Run `masking_policies.sql` in a Snowsight Worksheet
 3. **Create Semantic View and Marketplace listing:**
    - Run `03_deliver/03_semantic_view_marketplace.sql`
+   - ⚠️ **Before running:** Update `YOUR_ACCOUNT_NAME` and `your.email@company.com` with your values
 
 ### Step 4: Setup Monitoring
 
@@ -71,7 +72,7 @@ Run in Snowsight:
 ### Step 5: Verify the Data Product
 
 1. **Database Explorer:** Snowsight → **Data** → **Databases** → `RETAIL_BANKING_DB` → `DATA_PRODUCTS` → `RETAIL_CUSTOMER_CHURN_RISK`
-2. **Private Sharing:** Snowsight → **Data Products** → **Private Sharing** → Search for "Retail Customer Churn Risk"
+2. **Private Sharing:** Snowsight → **Catalog** → **Internal Marketplace** → Search for "Retail Customer Churn Risk"
 
 ### Cleanup
 
