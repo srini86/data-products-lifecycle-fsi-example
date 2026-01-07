@@ -46,7 +46,9 @@ In Snowsight: **Projects → Streamlit → + Streamlit App**
 ### Step 3: Generate Data Product
 
 1. Open the Streamlit app in Snowsight
-2. Select `churn_risk_data_contract.yaml` from the stage dropdown
+2. Choose an input method:
+   - **Paste YAML:** Copy contents of `02_design/churn_risk_data_contract.yaml` and paste
+   - **Load from Stage:** Enter `RETAIL_BANKING_DB.GOVERNANCE.DATA_CONTRACTS` and filename `churn_risk_data_contract.yaml`
 3. Click **Generate All Outputs**
 4. Copy the generated dbt artifacts → Create a **dbt Project** in Snowsight → Add the files → **Compile** and **Run**
 5. Copy `masking_policies.sql` → Run in a Snowsight Worksheet
