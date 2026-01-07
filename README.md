@@ -28,7 +28,7 @@ This repository follows a 5-stage lifecycle for delivering data products:
 
 ### Step 1: Setup Environment
 
-**Option A:** Clone repo locally and run scripts in Snowsight
+**Option A:** Clone repo locally
 ```bash
 git clone https://github.com/sfc-gh-skuppusamy/data-products-code-sample
 ```
@@ -36,21 +36,17 @@ git clone https://github.com/sfc-gh-skuppusamy/data-products-code-sample
 **Option B:** Create a Snowsight Worksheet from Git  
 Snowsight → **Projects** → **Worksheets** → **Create from Git Repository**
 
-Then open `00_setup/setup.sql` in Snowsight and run **Steps 1–4**.
+Open `00_setup/setup.sql` in Snowsight:
+- Run **Steps 1–4** to create database, schemas, and sample data
+- Run **Step 5** to create the Streamlit app (follow Option A in the script)
+- Run **Step 6** to verify all assets are created
 
-### Step 2: Create Streamlit App
+### Step 2: Generate Data Product Code
 
-In Snowsight: **Projects → Streamlit → + Streamlit App**
-- Name: `dbt_code_generator`  
-- Database: `RETAIL_BANKING_DB`, Schema: `GOVERNANCE`
-- Paste code from `03_deliver/01_dbt_generator_app.py` → Click **Run**
-
-### Step 3: Generate Data Product Code
-
-1. Open the Streamlit app in Snowsight
+1. Open the Streamlit app: Snowsight → **Projects** → **Streamlit** → `dbt_code_generator`
 2. Choose an input method:
    - **Paste YAML:** Copy contents of `02_design/churn_risk_data_contract.yaml` and paste
-   - **Load from Stage:** Enter `RETAIL_BANKING_DB.GOVERNANCE.DATA_CONTRACTS` and filename `churn_risk_data_contract.yaml`
+   - **Load from Stage:** Enter stage path and filename
 3. Click **Generate All Outputs**
 4. The app generates:
    - `retail_customer_churn_risk.sql` — dbt model with transformation logic
@@ -59,7 +55,7 @@ In Snowsight: **Projects → Streamlit → + Streamlit App**
 
 > 💡 **Sample outputs** are available at `03_deliver/02_generated_output/` for reference.
 
-### Step 4: Deploy Data Product
+### Step 3: Deploy Data Product
 
 1. **Deploy dbt model:**
    - Create a **dbt Project** in Snowsight → Add `retail_customer_churn_risk.sql` and `schema.yml` → **Compile** and **Run**
@@ -68,12 +64,12 @@ In Snowsight: **Projects → Streamlit → + Streamlit App**
 3. **Create Semantic View and Marketplace listing:**
    - Run `03_deliver/03_semantic_view_marketplace.sql`
 
-### Step 5: Setup Monitoring
+### Step 4: Setup Monitoring
 
 Run in Snowsight:
 - `04_operate/monitoring_observability.sql` — Sets up Data Metric Functions (DMFs) and alerts
 
-### Step 6: Verify the Data Product
+### Step 5: Verify the Data Product
 
 1. **Database Explorer:** Snowsight → **Data** → **Databases** → `RETAIL_BANKING_DB` → `DATA_PRODUCTS` → `RETAIL_CUSTOMER_CHURN_RISK`
 2. **Private Sharing:** Snowsight → **Data Products** → **Private Sharing** → Search for "Retail Customer Churn Risk"

@@ -569,16 +569,7 @@ SELECT '✅ Step 4 Complete: All sample data created and optimized' AS status;
 -- ============================================================================
 --
 -- ┌─────────────────────────────────────────────────────────────────────────┐
--- │ OPTION A: Upload .py file to Stage, then run the SQL below             │
--- ├─────────────────────────────────────────────────────────────────────────┤
--- │ 1. Go to: Data → Databases → RETAIL_BANKING_DB → GOVERNANCE → Stages   │
--- │ 2. Click "STREAMLIT_APPS" → "+ Files"                                   │
--- │ 3. Upload: 03_deliver/01_dbt_generator_app.py                           │
--- │ 4. Run the CREATE STREAMLIT SQL below                                   │
--- └─────────────────────────────────────────────────────────────────────────┘
---
--- ┌─────────────────────────────────────────────────────────────────────────┐
--- │ OPTION B: Create Streamlit App directly in Snowsight (skip SQL below)  │
+-- │ OPTION A (Recommended): Create Streamlit App directly in Snowsight     │
 -- ├─────────────────────────────────────────────────────────────────────────┤
 -- │ 1. Go to: Snowsight → Projects → Streamlit → "+ Streamlit App"         │
 -- │ 2. Name: dbt_code_generator                                             │
@@ -586,14 +577,23 @@ SELECT '✅ Step 4 Complete: All sample data created and optimized' AS status;
 -- │ 4. Warehouse: DATA_PRODUCTS_WH                                          │
 -- │ 5. Open 03_deliver/01_dbt_generator_app.py, copy ALL the code          │
 -- │ 6. Paste into the Streamlit editor and click "Run"                      │
--- │ 7. Skip to Step 6 - your app is already created!                        │
+-- │ 7. Done! Skip to Step 6 below.                                          │
+-- └─────────────────────────────────────────────────────────────────────────┘
+--
+-- ┌─────────────────────────────────────────────────────────────────────────┐
+-- │ OPTION B: Upload .py file to Stage, then run the SQL below             │
+-- ├─────────────────────────────────────────────────────────────────────────┤
+-- │ 1. Go to: Data → Databases → RETAIL_BANKING_DB → GOVERNANCE → Stages   │
+-- │ 2. Click "STREAMLIT_APPS" → "+ Files"                                   │
+-- │ 3. Upload: 03_deliver/01_dbt_generator_app.py                           │
+-- │ 4. Run the CREATE STREAMLIT SQL below                                   │
 -- └─────────────────────────────────────────────────────────────────────────┘
 --
 -- ============================================================================
 
 -- -- ============================================================================
--- -- OPTION A ONLY: Run the SQL below after uploading .py file to stage
--- -- (If you used Option B, skip to Step 6)
+-- -- OPTION B ONLY: Run the SQL below after uploading .py file to stage
+-- -- (If you used Option A, skip to Step 6)
 -- -- ============================================================================
 
 -- USE SCHEMA RETAIL_BANKING_DB.GOVERNANCE;
@@ -612,12 +612,7 @@ SELECT '✅ Step 4 Complete: All sample data created and optimized' AS status;
 -- -- Grant access to all users
 -- GRANT USAGE ON STREAMLIT dbt_code_generator TO ROLE PUBLIC;
 
--- SELECT '✅ Step 5 Complete: Streamlit app deployed (Option A)' AS status;
-
--- ============================================================================
--- OPTION B: If you created the app directly in Snowsight, you're done!
--- Just continue to Step 6 below.
--- ============================================================================
+-- SELECT '✅ Step 5 Complete: Streamlit app deployed (Option B)' AS status;
 
 
 -- ============================================================================
