@@ -1,70 +1,104 @@
 # Data Products for Financial Services
 
-Code samples for building Data Products on Snowflake, demonstrating the **Retail Customer Churn Risk** use case.
+Code samples demonstrating how to build Data Products on Snowflake using the **Retail Customer Churn Risk** use case.
 
 ---
 
-## Quick Start
+## Overview: Data Product Lifecycle
 
-### 1. Clone & Setup
+This repo follows a 5-stage lifecycle for delivering data products:
+
+```
+                            ┌──────────────┐
+                            │   DISCOVER   │
+                            │              │
+                            │ Business     │
+                            │ event storms │
+                            │ → candidate  │
+                            │ data products│
+                            └──────┬───────┘
+                                   │
+        ┌──────────────┐           │           ┌──────────────┐
+        │    REFINE    │           │           │    DESIGN    │
+        │              │           ▼           │              │
+        │ Evolve with  │◀────  ❄️  ────▶      │ Canvas →     │
+        │ new features │                       │ Data Contract│
+        │ and versions │                       │ (YAML)       │
+        └──────────────┘                       └──────┬───────┘
+                ▲                                     │
+                │           ┌──────────────┐          │
+                │           │   DELIVER    │          │
+                └───────────│              │◀─────────┘
+                            │ Code +       │
+                            │ metadata +   │
+                            │ compute      │
+                            └──────┬───────┘
+                                   │
+                            ┌──────▼───────┐
+                            │   OPERATE    │
+                            │              │
+                            │ Monitor SLA, │
+                            │ usage, drift │
+                            └──────────────┘
+```
+
+| Stage | What Happens | Repo Folder |
+|-------|--------------|-------------|
+| **Discover** | Business process event storms → candidate data products | `01_discover/` |
+| **Design** | Specifications in canvas → machine-readable data contract | `02_design/` |
+| **Deliver** | Build data assets with code, metadata, and compute | `03_deliver/` |
+| **Operate** | Monitor SLA per contract, usage, and data drifts | `04_operate/` |
+| **Refine** | Evolve with new features and versions | `05_refine/` |
+
+---
+
+## How to Use This Repo
+
+### Step 1: Setup Environment
 
 ```bash
 git clone https://github.com/srini86/data-products-lifecycle-fsi-example
-cd data-products-lifecycle-fsi-example
 ```
 
-Open `00_setup/setup.sql` in Snowsight and run **Steps 1-4** (creates DB, tables, sample data, stages).
+Open `00_setup/setup.sql` in Snowsight → Run **Steps 1-4**
 
-### 2. Create Streamlit App
+### Step 2: Create Streamlit App
 
-Go to **Snowsight → Projects → Streamlit → + Streamlit App**
-- Name: `dbt_code_generator`
+In Snowsight: **Projects → Streamlit → + Streamlit App**
+- Name: `dbt_code_generator`  
 - Database: `RETAIL_BANKING_DB`, Schema: `GOVERNANCE`
-- Copy code from `03_deliver/01_dbt_generator_app.py` → Paste → Run
+- Paste code from `03_deliver/01_dbt_generator_app.py` → Run
 
-### 3. Generate & Deploy
+### Step 3: Generate Data Product
 
-1. In the Streamlit app, select `churn_risk_data_contract.yaml` from stage
-2. Click **Generate All Outputs**
-3. Copy the generated SQL and run in Snowsight
+1. Open the Streamlit app
+2. Select `churn_risk_data_contract.yaml` from stage
+3. Click **Generate All Outputs**
+4. Copy generated SQL → Run in Snowsight
 
-### 4. Apply Governance
+### Step 4: Apply Governance & Monitoring
 
-Run these scripts in Snowsight:
+Run in Snowsight:
 - `03_deliver/03_semantic_view_marketplace.sql`
 - `04_operate/monitoring_observability.sql`
 
 ### Cleanup
 
-```sql
--- Run 06_cleanup/cleanup.sql to remove all resources
-```
+Run `06_cleanup/cleanup.sql` to remove all resources.
 
 ---
 
 ## Folder Structure
 
 ```
-├── 00_setup/setup.sql              # Setup script
+├── 00_setup/                       # Setup script
 ├── 01_discover/                    # Data Product Canvas
 ├── 02_design/                      # Data Contract (YAML)
-├── 03_deliver/                     # Streamlit app + generated outputs
-├── 04_operate/                     # Monitoring with DMFs
-├── 05_refine/                      # Evolution example (v2 contract)
+├── 03_deliver/                     # Streamlit app + outputs
+├── 04_operate/                     # DMF monitoring
+├── 05_refine/                      # Evolution (v2 contract)
 └── 06_cleanup/                     # Cleanup script
 ```
-
----
-
-## Data Product Lifecycle
-
-| Stage | Output |
-|-------|--------|
-| Discover | Business canvas |
-| Design | Data contract |
-| Deliver | dbt model, masking policies |
-| Operate | DMF monitoring, alerts |
-| Refine | Versioning, new features |
 
 ---
 
