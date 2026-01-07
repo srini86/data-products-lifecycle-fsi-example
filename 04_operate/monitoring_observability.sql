@@ -183,6 +183,22 @@ FROM TABLE(
 );
 
 -- 4b. View latest DMF results (Data Quality Monitoring Results)
+-- ┌─────────────────────────────────────────────────────────────────────────────┐
+-- │ EXPECTATIONS / THRESHOLDS                                                   │
+-- ├────────────────────────┬────────────────────────────────────────────────────┤
+-- │ Metric                 │ Expectation                                        │
+-- ├────────────────────────┼────────────────────────────────────────────────────┤
+-- │ NULL_COUNT             │ = 0 (no nulls in critical columns)                 │
+-- │ DUPLICATE_COUNT        │ = 0 (customer_id must be unique)                   │
+-- │ UNIQUE_COUNT           │ > 0 (informational, cardinality check)             │
+-- │ ROW_COUNT              │ >= 500 (minimum expected records)                  │
+-- │ FRESHNESS              │ <= 86400 seconds (24 hours SLA)                    │
+-- │ RISK_SCORE_OUT_OF_RANGE│ = 0 (all scores between 0-100)                     │
+-- │ RISK_TIER_MISALIGNMENT │ = 0 (score matches tier)                           │
+-- │ INVALID_RISK_TIER      │ = 0 (only LOW/MEDIUM/HIGH/CRITICAL)                │
+-- │ HIGH_RISK_PERCENTAGE   │ <= 35% (business threshold, WARN if exceeded)      │
+-- └────────────────────────┴────────────────────────────────────────────────────┘
+
 CREATE OR REPLACE VIEW data_quality_results AS
 SELECT 
     measurement_time,
@@ -191,6 +207,20 @@ SELECT
     table_database || '.' || table_schema || '.' || table_name AS table_full_name,
     argument_names AS column_names,
     value AS metric_value,
+    -- Expected thresholds
+    CASE 
+        WHEN metric_name = 'NULL_COUNT' THEN '= 0'
+        WHEN metric_name = 'DUPLICATE_COUNT' THEN '= 0'
+        WHEN metric_name = 'UNIQUE_COUNT' THEN '> 0'
+        WHEN metric_name = 'ROW_COUNT' THEN '>= 500'
+        WHEN metric_name = 'FRESHNESS' THEN '<= 86400 sec'
+        WHEN metric_name = 'RISK_SCORE_OUT_OF_RANGE' THEN '= 0'
+        WHEN metric_name = 'RISK_TIER_MISALIGNMENT' THEN '= 0'
+        WHEN metric_name = 'INVALID_RISK_TIER' THEN '= 0'
+        WHEN metric_name = 'HIGH_RISK_PERCENTAGE' THEN '<= 35%'
+        ELSE 'N/A'
+    END AS expectation,
+    -- Pass/Fail evaluation
     CASE 
         -- System DMFs - interpret results
         WHEN metric_name = 'NULL_COUNT' AND value > 0 THEN 'FAIL'
@@ -532,24 +562,199 @@ SELECT * FROM MONITORING.risk_distribution_summary;
 
 
 -- ============================================================================
--- OPTIONAL: MANUALLY TRIGGER DMFs (Run on-demand instead of waiting for schedule)
+-- PART 10: IMMEDIATE QUALITY TESTS (Run without waiting for DMF schedule)
 -- ============================================================================
--- NOTE: There is no single command to execute all DMFs. 
--- You can call them individually using SELECT syntax:
+-- These queries test the same rules as DMFs but return results immediately.
+-- Useful for validation during development or ad-hoc checks.
+-- ============================================================================
 
--- -- Example: Manually call system DMF
--- SELECT SNOWFLAKE.CORE.NULL_COUNT(
---     SELECT customer_id FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
--- );
+-- 10a. Test: NULL checks on critical columns
+SELECT 
+    'NULL_COUNT' AS test_name,
+    'customer_id' AS column_name,
+    COUNT(*) - COUNT(customer_id) AS null_count,
+    0 AS expectation,
+    CASE WHEN COUNT(*) - COUNT(customer_id) = 0 THEN '✅ PASS' ELSE '❌ FAIL' END AS result
+FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+UNION ALL
+SELECT 
+    'NULL_COUNT', 'churn_risk_score',
+    COUNT(*) - COUNT(churn_risk_score), 0,
+    CASE WHEN COUNT(*) - COUNT(churn_risk_score) = 0 THEN '✅ PASS' ELSE '❌ FAIL' END
+FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+UNION ALL
+SELECT 
+    'NULL_COUNT', 'risk_tier',
+    COUNT(*) - COUNT(risk_tier), 0,
+    CASE WHEN COUNT(*) - COUNT(risk_tier) = 0 THEN '✅ PASS' ELSE '❌ FAIL' END
+FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
 
--- -- Example: Manually call custom DMF
--- SELECT MONITORING.risk_score_out_of_range(
---     SELECT churn_risk_score FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
--- );
+-- 10b. Test: DUPLICATE check on primary key
+SELECT 
+    'DUPLICATE_COUNT' AS test_name,
+    'customer_id' AS column_name,
+    COUNT(*) - COUNT(DISTINCT customer_id) AS duplicate_count,
+    0 AS expectation,
+    CASE WHEN COUNT(*) = COUNT(DISTINCT customer_id) THEN '✅ PASS' ELSE '❌ FAIL' END AS result
+FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
 
--- To force scheduled DMFs to run, you can:
--- 1. Wait for the schedule (TRIGGER_ON_CHANGES or cron)
--- 2. Make a dummy update to trigger TRIGGER_ON_CHANGES:
-   -- UPDATE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK 
-   -- SET score_calculated_at = score_calculated_at 
-   -- WHERE 1=0;
+-- 10c. Test: ROW_COUNT minimum threshold
+SELECT 
+    'ROW_COUNT' AS test_name,
+    'table' AS column_name,
+    COUNT(*) AS row_count,
+    500 AS expectation,
+    CASE WHEN COUNT(*) >= 500 THEN '✅ PASS' ELSE '❌ FAIL' END AS result
+FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
+
+-- 10d. Test: UNIQUE_COUNT cardinality
+SELECT 
+    'UNIQUE_COUNT' AS test_name,
+    'customer_id' AS column_name,
+    COUNT(DISTINCT customer_id) AS unique_count,
+    NULL AS expectation,
+    '✅ INFO' AS result
+FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+UNION ALL
+SELECT 
+    'UNIQUE_COUNT', 'risk_tier',
+    COUNT(DISTINCT risk_tier), NULL, '✅ INFO'
+FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
+
+-- 10e. Test: FRESHNESS (hours since last update)
+SELECT 
+    'FRESHNESS' AS test_name,
+    'score_calculated_at' AS column_name,
+    ROUND(DATEDIFF('second', MAX(score_calculated_at), CURRENT_TIMESTAMP()) / 3600.0, 1) AS hours_old,
+    24 AS expectation_hours,
+    CASE 
+        WHEN DATEDIFF('second', MAX(score_calculated_at), CURRENT_TIMESTAMP()) <= 86400 THEN '✅ PASS'
+        ELSE '❌ FAIL'
+    END AS result
+FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
+
+-- 10f. Test: Risk score range (0-100)
+SELECT 
+    'RISK_SCORE_RANGE' AS test_name,
+    'churn_risk_score' AS column_name,
+    SUM(CASE WHEN churn_risk_score < 0 OR churn_risk_score > 100 THEN 1 ELSE 0 END) AS out_of_range,
+    0 AS expectation,
+    CASE 
+        WHEN SUM(CASE WHEN churn_risk_score < 0 OR churn_risk_score > 100 THEN 1 ELSE 0 END) = 0 THEN '✅ PASS'
+        ELSE '❌ FAIL'
+    END AS result
+FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
+
+-- 10g. Test: Risk tier valid values
+SELECT 
+    'VALID_RISK_TIER' AS test_name,
+    'risk_tier' AS column_name,
+    SUM(CASE WHEN risk_tier NOT IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL') THEN 1 ELSE 0 END) AS invalid_count,
+    0 AS expectation,
+    CASE 
+        WHEN SUM(CASE WHEN risk_tier NOT IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL') THEN 1 ELSE 0 END) = 0 THEN '✅ PASS'
+        ELSE '❌ FAIL'
+    END AS result
+FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
+
+-- 10h. Test: Risk tier alignment with score
+SELECT 
+    'RISK_TIER_ALIGNMENT' AS test_name,
+    'churn_risk_score, risk_tier' AS column_name,
+    SUM(CASE 
+        WHEN NOT (
+            (churn_risk_score <= 25 AND risk_tier = 'LOW') OR
+            (churn_risk_score > 25 AND churn_risk_score <= 50 AND risk_tier = 'MEDIUM') OR
+            (churn_risk_score > 50 AND churn_risk_score <= 75 AND risk_tier = 'HIGH') OR
+            (churn_risk_score > 75 AND risk_tier = 'CRITICAL')
+        ) THEN 1 ELSE 0 END) AS misaligned_count,
+    0 AS expectation,
+    CASE 
+        WHEN SUM(CASE 
+            WHEN NOT (
+                (churn_risk_score <= 25 AND risk_tier = 'LOW') OR
+                (churn_risk_score > 25 AND churn_risk_score <= 50 AND risk_tier = 'MEDIUM') OR
+                (churn_risk_score > 50 AND churn_risk_score <= 75 AND risk_tier = 'HIGH') OR
+                (churn_risk_score > 75 AND risk_tier = 'CRITICAL')
+            ) THEN 1 ELSE 0 END) = 0 THEN '✅ PASS'
+        ELSE '❌ FAIL'
+    END AS result
+FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
+
+-- 10i. Test: High risk percentage (business threshold)
+SELECT 
+    'HIGH_RISK_PERCENTAGE' AS test_name,
+    'risk_tier' AS column_name,
+    ROUND(SUM(CASE WHEN risk_tier IN ('HIGH', 'CRITICAL') THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS high_risk_pct,
+    35 AS expectation_max_pct,
+    CASE 
+        WHEN ROUND(SUM(CASE WHEN risk_tier IN ('HIGH', 'CRITICAL') THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) <= 35 THEN '✅ PASS'
+        ELSE '⚠️ WARN'
+    END AS result
+FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
+
+
+-- ============================================================================
+-- COMBINED TEST SUMMARY (Run this for a quick overview)
+-- ============================================================================
+
+SELECT '══════════════════════════════════════════════════════════════' AS summary UNION ALL
+SELECT '                    DATA QUALITY TEST RESULTS                  ' UNION ALL
+SELECT '══════════════════════════════════════════════════════════════';
+
+-- Run all tests and show summary
+WITH all_tests AS (
+    SELECT 'NULL_COUNT (customer_id)' AS test, 
+           CASE WHEN COUNT(*) - COUNT(customer_id) = 0 THEN '✅ PASS' ELSE '❌ FAIL' END AS result,
+           COUNT(*) - COUNT(customer_id) AS value
+    FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    UNION ALL
+    SELECT 'NULL_COUNT (churn_risk_score)', 
+           CASE WHEN COUNT(*) - COUNT(churn_risk_score) = 0 THEN '✅ PASS' ELSE '❌ FAIL' END,
+           COUNT(*) - COUNT(churn_risk_score)
+    FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    UNION ALL
+    SELECT 'NULL_COUNT (risk_tier)', 
+           CASE WHEN COUNT(*) - COUNT(risk_tier) = 0 THEN '✅ PASS' ELSE '❌ FAIL' END,
+           COUNT(*) - COUNT(risk_tier)
+    FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    UNION ALL
+    SELECT 'DUPLICATE_COUNT (customer_id)', 
+           CASE WHEN COUNT(*) = COUNT(DISTINCT customer_id) THEN '✅ PASS' ELSE '❌ FAIL' END,
+           COUNT(*) - COUNT(DISTINCT customer_id)
+    FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    UNION ALL
+    SELECT 'ROW_COUNT (>= 500)', 
+           CASE WHEN COUNT(*) >= 500 THEN '✅ PASS' ELSE '❌ FAIL' END,
+           COUNT(*)
+    FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    UNION ALL
+    SELECT 'RISK_SCORE_RANGE (0-100)', 
+           CASE WHEN SUM(CASE WHEN churn_risk_score < 0 OR churn_risk_score > 100 THEN 1 ELSE 0 END) = 0 THEN '✅ PASS' ELSE '❌ FAIL' END,
+           SUM(CASE WHEN churn_risk_score < 0 OR churn_risk_score > 100 THEN 1 ELSE 0 END)
+    FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    UNION ALL
+    SELECT 'VALID_RISK_TIER', 
+           CASE WHEN SUM(CASE WHEN risk_tier NOT IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL') THEN 1 ELSE 0 END) = 0 THEN '✅ PASS' ELSE '❌ FAIL' END,
+           SUM(CASE WHEN risk_tier NOT IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL') THEN 1 ELSE 0 END)
+    FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+    UNION ALL
+    SELECT 'HIGH_RISK_PCT (<= 35%)', 
+           CASE WHEN ROUND(SUM(CASE WHEN risk_tier IN ('HIGH', 'CRITICAL') THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) <= 35 THEN '✅ PASS' ELSE '⚠️ WARN' END,
+           ROUND(SUM(CASE WHEN risk_tier IN ('HIGH', 'CRITICAL') THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2)
+    FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+)
+SELECT test, result, value FROM all_tests;
+
+
+-- ============================================================================
+-- OPTIONAL: MANUALLY TRIGGER SCHEDULED DMFs
+-- ============================================================================
+-- To force the scheduled DMFs to populate DATA_QUALITY_MONITORING_RESULTS:
+-- Make a dummy update to trigger TRIGGER_ON_CHANGES (if using that schedule):
+--
+-- UPDATE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK 
+-- SET score_calculated_at = score_calculated_at 
+-- WHERE 1=0;
+--
+-- Then query: SELECT * FROM MONITORING.data_quality_results;
