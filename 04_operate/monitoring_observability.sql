@@ -25,10 +25,10 @@ USE SCHEMA MONITORING;
 -- IMPORTANT: Schedule must exist before associating DMFs to the table
 -- ============================================================================
 
--- Set monitoring schedule - DMFs run automatically per schedule
+-- Set monitoring schedule - DMFs run automatically every 30 minutes
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
-    SET DATA_METRIC_SCHEDULE = 'TRIGGER_ON_CHANGES';
-    -- Alternative: 'USING CRON 0 6,18 * * * UTC' for twice daily at 6AM and 6PM
+    SET DATA_METRIC_SCHEDULE = 'USING CRON 0,30 * * * * UTC';
+    -- Alternative: 'TRIGGER_ON_CHANGES' to run only when data changes
 
 
 -- ============================================================================
