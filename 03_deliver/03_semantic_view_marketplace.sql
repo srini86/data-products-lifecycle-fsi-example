@@ -103,7 +103,11 @@ GRANT REFERENCE_USAGE ON DATABASE RETAIL_BANKING_DB TO SHARE retail_churn_risk_s
 
 
 -- Step 2b: Create the internal listing
--- NOTE: Update organization_targets and contacts for your environment
+-- ╔════════════════════════════════════════════════════════════════════════════╗
+-- ║ UPDATE THESE VALUES FOR YOUR ENVIRONMENT:                                   ║
+-- ║   - YOUR_ACCOUNT_NAME: Your Snowflake account identifier                   ║
+-- ║   - your.email@company.com: Your email for approver/support contacts       ║
+-- ╚════════════════════════════════════════════════════════════════════════════╝
 -- NOTE: CREATE LISTING does not support OR REPLACE. Drop first if it exists.
 -- DROP LISTING IF EXISTS retail_customer_churn_risk;  -- Only works for unpublished listings
 
@@ -118,14 +122,14 @@ description: |
 organization_profile: INTERNAL
 organization_targets:
   access:
-  - account: SRINIVASANKUPPUSAMY_AWS1
+  - account: YOUR_ACCOUNT_NAME
   discovery:
-  - account: SRINIVASANKUPPUSAMY_AWS1
+  - account: YOUR_ACCOUNT_NAME
 locations:
   access_regions:
   - name: ALL
-approver_contact: srinivasan.kuppusamy@snowflake.com
-support_contact: srinivasan.kuppusamy@snowflake.com
+approver_contact: your.email@company.com
+support_contact: your.email@company.com
 $$
 DISTRIBUTION = ORGANIZATION;
 
