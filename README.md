@@ -57,7 +57,7 @@ This repository follows a 5-stage lifecycle for delivering data products:
 ### Step 3: Deploy Data Product
 
 1. **Deploy dbt model:**
-   - Create a **dbt Project** in Snowsight → Add `retail_customer_churn_risk.sql` and `schema.yml` → **Compile** and **Run**
+   - Create a **dbt Project** in Snowsight → Add `retail_customer_churn_risk.sql` and `schema.yml` to the 'models' folder in DBT Project → **Compile** and **Run**
 2. **Apply masking policies:**
    - Run `masking_policies.sql` in a Snowsight Worksheet
 3. **Create Semantic View and Marketplace listing:**
