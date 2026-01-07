@@ -591,28 +591,28 @@ SELECT '✅ Step 4 Complete: All sample data created and optimized' AS status;
 --
 -- ============================================================================
 
--- ============================================================================
--- OPTION A ONLY: Run the SQL below after uploading .py file to stage
--- (If you used Option B, skip to Step 6)
--- ============================================================================
+-- -- ============================================================================
+-- -- OPTION A ONLY: Run the SQL below after uploading .py file to stage
+-- -- (If you used Option B, skip to Step 6)
+-- -- ============================================================================
 
-USE SCHEMA RETAIL_BANKING_DB.GOVERNANCE;
+-- USE SCHEMA RETAIL_BANKING_DB.GOVERNANCE;
 
--- Verify the file exists in the stage (should show 01_dbt_generator_app.py)
-LIST @RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps;
+-- -- Verify the file exists in the stage (should show 01_dbt_generator_app.py)
+-- LIST @RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps;
 
--- Create the Streamlit app from the staged file
-CREATE OR REPLACE STREAMLIT dbt_code_generator
-    ROOT_LOCATION = '@RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps'
-    MAIN_FILE = '01_dbt_generator_app.py'
-    QUERY_WAREHOUSE = 'DATA_PRODUCTS_WH'
-    TITLE = 'dbt Code Generator'
-    COMMENT = 'Generates dbt models from data contracts using Cortex LLM';
+-- -- Create the Streamlit app from the staged file
+-- CREATE OR REPLACE STREAMLIT dbt_code_generator
+--     ROOT_LOCATION = '@RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps'
+--     MAIN_FILE = '01_dbt_generator_app.py'
+--     QUERY_WAREHOUSE = 'DATA_PRODUCTS_WH'
+--     TITLE = 'dbt Code Generator'
+--     COMMENT = 'Generates dbt models from data contracts using Cortex LLM';
 
--- Grant access to all users
-GRANT USAGE ON STREAMLIT dbt_code_generator TO ROLE PUBLIC;
+-- -- Grant access to all users
+-- GRANT USAGE ON STREAMLIT dbt_code_generator TO ROLE PUBLIC;
 
-SELECT '✅ Step 5 Complete: Streamlit app deployed (Option A)' AS status;
+-- SELECT '✅ Step 5 Complete: Streamlit app deployed (Option A)' AS status;
 
 -- ============================================================================
 -- OPTION B: If you created the app directly in Snowsight, you're done!
