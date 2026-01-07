@@ -529,3 +529,11 @@ SELECT * FROM MONITORING.risk_distribution_summary;
 --
 -- Docs: https://docs.snowflake.com/en/user-guide/data-quality-intro
 -- ============================================================================
+
+
+-- ============================================================================
+-- OPTIONAL: MANUALLY TRIGGER DMFs (Run on-demand instead of waiting for schedule)
+-- ============================================================================
+-- Uncomment the line below to immediately execute all DMFs on the table
+
+-- EXECUTE DATA METRIC FUNCTION ON TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
