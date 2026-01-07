@@ -8,39 +8,9 @@ Code samples demonstrating how to build Data Products on Snowflake using the **R
 
 This repo follows a 5-stage lifecycle for delivering data products:
 
-```
-                            ┌──────────────┐
-                            │   DISCOVER   │
-                            │              │
-                            │ Business     │
-                            │ event storms │
-                            │ → candidate  │
-                            │ data products│
-                            └──────┬───────┘
-                                   │
-        ┌──────────────┐           │           ┌──────────────┐
-        │    REFINE    │           │           │    DESIGN    │
-        │              │           ▼           │              │
-        │ Evolve with  │◀────  ❄️  ────▶      │ Canvas →     │
-        │ new features │                       │ Data Contract│
-        │ and versions │                       │ (YAML)       │
-        └──────────────┘                       └──────┬───────┘
-                ▲                                     │
-                │           ┌──────────────┐          │
-                │           │   DELIVER    │          │
-                └───────────│              │◀─────────┘
-                            │ Code +       │
-                            │ metadata +   │
-                            │ compute      │
-                            └──────┬───────┘
-                                   │
-                            ┌──────▼───────┐
-                            │   OPERATE    │
-                            │              │
-                            │ Monitor SLA, │
-                            │ usage, drift │
-                            └──────────────┘
-```
+<p align="center">
+  <img src="images/data-product-lifecycle.png" alt="Data Product Lifecycle" width="700"/>
+</p>
 
 | Stage | What Happens | Repo Folder |
 |-------|--------------|-------------|
@@ -86,8 +56,8 @@ Run in Snowsight:
 - `04_operate/monitoring_observability.sql`
 
 ### Step 5: Verify the new data products created
-1. Snowsight Database Explorer -> <name pf data product>
-2. 
+1. Snowsight -> Database Explorer -> <name pf data product>
+2. Snowsight -> Data Sharing -> Internal Marketplace -> Search 'Retail Customer Churn Risk' 
 
 ### Cleanup
 Run `06_cleanup/cleanup.sql` to remove all resources.
