@@ -534,6 +534,22 @@ SELECT * FROM MONITORING.risk_distribution_summary;
 -- ============================================================================
 -- OPTIONAL: MANUALLY TRIGGER DMFs (Run on-demand instead of waiting for schedule)
 -- ============================================================================
--- Uncomment the line below to immediately execute all DMFs on the table
+-- NOTE: There is no single command to execute all DMFs. 
+-- You can call them individually using SELECT syntax:
 
--- EXECUTE DATA METRIC FUNCTION ON TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
+-- -- Example: Manually call system DMF
+-- SELECT SNOWFLAKE.CORE.NULL_COUNT(
+--     SELECT customer_id FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+-- );
+
+-- -- Example: Manually call custom DMF
+-- SELECT MONITORING.risk_score_out_of_range(
+--     SELECT churn_risk_score FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+-- );
+
+-- To force scheduled DMFs to run, you can:
+-- 1. Wait for the schedule (TRIGGER_ON_CHANGES or cron)
+-- 2. Make a dummy update to trigger TRIGGER_ON_CHANGES:
+   -- UPDATE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK 
+   -- SET score_calculated_at = score_calculated_at 
+   -- WHERE 1=0;
