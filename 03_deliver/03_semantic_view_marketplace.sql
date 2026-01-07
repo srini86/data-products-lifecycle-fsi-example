@@ -21,10 +21,10 @@ USE SCHEMA DATA_PRODUCTS;
 -- ============================================================================
 
 CREATE OR REPLACE SEMANTIC VIEW retail_customer_churn_risk_sv
-  TABLES (
+TABLES (
     churn AS DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK PRIMARY KEY (customer_id)
   )
-  DIMENSIONS (
+DIMENSIONS (
     -- Customer attributes
     churn.customer_id AS customer_id,
     churn.customer_name AS customer_name,
@@ -65,7 +65,7 @@ CREATE OR REPLACE SEMANTIC VIEW retail_customer_churn_risk_sv
     -- Note: Semantic View metrics currently support COUNT reliably
     -- AVG/SUM may not be supported depending on Snowflake version
     customer_count AS COUNT(churn.customer_id)
-  );
+);
 
 -- Add comment to the semantic view
 COMMENT ON SEMANTIC VIEW retail_customer_churn_risk_sv IS 
@@ -103,30 +103,31 @@ GRANT REFERENCE_USAGE ON DATABASE RETAIL_BANKING_DB TO SHARE retail_churn_risk_s
 
 
 -- Step 2b: Create the internal listing
--- NOTE: CREATE LISTING requires Snowflake Marketplace to be enabled.
--- If not available, skip this section. The share is still usable.
-/*
-CREATE OR REPLACE LISTING retail_customer_churn_risk_listing
-    FOR SHARE retail_churn_risk_share
-    AS $$
-    title: "Retail Customer Churn Risk Data Product"
-    subtitle: "AI-ready customer churn predictions with explainable risk drivers"
-    description: |
-      ## Overview
-      The Retail Customer Churn Risk data product provides daily-refreshed 
-      churn risk scores for retail banking customers.
-      
-      ## Key Features
-      - Churn Risk Score: 0-100 score indicating likelihood of churn
-      - Risk Tier Classification: LOW, MEDIUM, HIGH, CRITICAL
-      - Explainable Risk Drivers
-      - Recommended Interventions
-    $$;
+-- NOTE: Update organization_targets and contacts for your environment
+-- NOTE: CREATE LISTING does not support OR REPLACE. Drop first if it exists.
+-- DROP LISTING IF EXISTS retail_customer_churn_risk;  -- Only works for unpublished listings
 
--- Set listing visibility (requires Marketplace enabled)
-ALTER LISTING retail_customer_churn_risk_listing 
-    SET VISIBILITY = 'ORGANIZATION';
-*/
+CREATE LISTING IF NOT EXISTS retail_customer_churn_risk
+  FOR SHARE retail_churn_risk_share
+  AS
+$$
+title: Retail Customer Churn Risk
+description: |
+  Daily churn risk scores for retail banking customers.
+  Features: Risk Score (0-100), Risk Tier, Primary Risk Driver, Recommended Intervention.
+organization_profile: INTERNAL
+organization_targets:
+  access:
+  - account: SRINIVASANKUPPUSAMY_AWS1
+  discovery:
+  - account: SRINIVASANKUPPUSAMY_AWS1
+locations:
+  access_regions:
+  - name: ALL
+approver_contact: srinivasan.kuppusamy@snowflake.com
+support_contact: srinivasan.kuppusamy@snowflake.com
+$$
+DISTRIBUTION = ORGANIZATION;
 
 
 -- ============================================================================

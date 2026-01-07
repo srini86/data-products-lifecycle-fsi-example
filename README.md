@@ -56,9 +56,11 @@ This repo follows a 5-stage lifecycle for delivering data products:
 
 ### Step 1: Setup Environment
 
+Option A: Clone repo to local and use code in Snowsight
 ```bash
 git clone https://github.com/sfc-gh-skuppusamy/data-products-code-sample
 ```
+Option B: Snowight -> Workspace -> Form Git Repo 
 
 Open `00_setup/setup.sql` in Snowsight → Run **Steps 1-4**
 
