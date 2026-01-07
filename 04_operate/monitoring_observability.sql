@@ -38,25 +38,29 @@ ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
 -- These run automatically when scheduled and store results in INFORMATION_SCHEMA
 -- ============================================================================
 
--- 2a. Apply System DMF: NULL_COUNT on critical columns
+-- 2a. Apply System DMF: NULL_COUNT on critical columns (Expect: 0 nulls)
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT 
-    ON (customer_id);
+    ON (customer_id)
+    EXPECTATION no_null_customer_id (VALUE = 0);
 
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT 
-    ON (churn_risk_score);
+    ON (churn_risk_score)
+    EXPECTATION no_null_risk_score (VALUE = 0);
 
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT 
-    ON (risk_tier);
+    ON (risk_tier)
+    EXPECTATION no_null_risk_tier (VALUE = 0);
 
--- 2b. Apply System DMF: DUPLICATE_COUNT on primary key
+-- 2b. Apply System DMF: DUPLICATE_COUNT on primary key (Expect: 0 duplicates)
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.DUPLICATE_COUNT 
-    ON (customer_id);
+    ON (customer_id)
+    EXPECTATION no_duplicate_customer_id (VALUE = 0);
 
--- 2c. Apply System DMF: UNIQUE_COUNT for cardinality
+-- 2c. Apply System DMF: UNIQUE_COUNT for cardinality (informational, no expectation)
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.UNIQUE_COUNT 
     ON (customer_id);
@@ -65,15 +69,17 @@ ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.UNIQUE_COUNT 
     ON (risk_tier);
 
--- 2d. Apply System DMF: FRESHNESS on timestamp column
+-- 2d. Apply System DMF: FRESHNESS on timestamp column (Expect: <= 24 hours = 86400 sec)
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.FRESHNESS 
-    ON (score_calculated_at);
+    ON (score_calculated_at)
+    EXPECTATION freshness_sla_24h (VALUE <= 86400);
 
--- 2e. Apply System DMF: ROW_COUNT for completeness
+-- 2e. Apply System DMF: ROW_COUNT for completeness (Expect: >= 500 rows)
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.ROW_COUNT 
-    ON ();
+    ON ()
+    EXPECTATION min_row_count_500 (VALUE >= 500);
 
 
 -- ============================================================================
@@ -94,10 +100,11 @@ $$
     WHERE ARG_C < 0 OR ARG_C > 100
 $$;
 
--- Apply custom DMF
+-- Apply custom DMF (Expect: 0 out-of-range scores)
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION MONITORING.risk_score_out_of_range 
-    ON (churn_risk_score);
+    ON (churn_risk_score)
+    EXPECTATION all_scores_in_range (VALUE = 0);
 
 -- 3b. Custom DMF: Risk Tier Misalignment
 CREATE OR REPLACE DATA METRIC FUNCTION risk_tier_misalignment(
@@ -116,10 +123,11 @@ $$
     )
 $$;
 
--- Apply custom DMF
+-- Apply custom DMF (Expect: 0 misaligned rows)
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION MONITORING.risk_tier_misalignment 
-    ON (churn_risk_score, risk_tier);
+    ON (churn_risk_score, risk_tier)
+    EXPECTATION tier_matches_score (VALUE = 0);
 
 -- 3c. Custom DMF: Invalid Risk Tier Values
 CREATE OR REPLACE DATA METRIC FUNCTION invalid_risk_tier(
@@ -133,10 +141,11 @@ $$
     WHERE ARG_C NOT IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')
 $$;
 
--- Apply custom DMF
+-- Apply custom DMF (Expect: 0 invalid tier values)
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION MONITORING.invalid_risk_tier 
-    ON (risk_tier);
+    ON (risk_tier)
+    EXPECTATION valid_tier_values (VALUE = 0);
 
 -- 3d. Custom DMF: High Risk Percentage (business threshold)
 CREATE OR REPLACE DATA METRIC FUNCTION high_risk_percentage(
@@ -153,10 +162,11 @@ $$
     FROM ARG_T
 $$;
 
--- Apply custom DMF
+-- Apply custom DMF (Expect: <= 35% high risk customers)
 ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION MONITORING.high_risk_percentage 
-    ON (risk_tier);
+    ON (risk_tier)
+    EXPECTATION high_risk_under_threshold (VALUE <= 35);
 
 
 -- ============================================================================
@@ -165,7 +175,7 @@ ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
 -- Query built-in views for DMF results
 -- ============================================================================
 
--- 4a. View all DMFs applied to the table
+-- 4a. View all DMFs and their expectations
 CREATE OR REPLACE VIEW dmf_configuration AS
 SELECT 
     metric_database_name,
@@ -182,7 +192,41 @@ FROM TABLE(
     )
 );
 
--- 4b. View latest DMF results (Data Quality Monitoring Results)
+-- 4b. View all expectations defined for this table (native view)
+CREATE OR REPLACE VIEW dmf_expectations AS
+SELECT 
+    expectation_name,
+    expectation_expression,
+    metric_name,
+    ref_entity_name AS table_name,
+    ref_arguments AS columns
+FROM TABLE(
+    INFORMATION_SCHEMA.DATA_METRIC_FUNCTION_EXPECTATIONS(
+        REF_ENTITY_NAME => 'RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK',
+        REF_ENTITY_DOMAIN => 'TABLE'
+    )
+);
+
+-- 4c. View expectation violations (native view)
+-- This shows PASS/FAIL status based on the EXPECTATION clauses defined above
+CREATE OR REPLACE VIEW expectation_violations AS
+SELECT 
+    measurement_time,
+    expectation_name,
+    expectation_expression,
+    metric_name,
+    table_name,
+    value AS dmf_result,
+    CASE WHEN violation_status = TRUE THEN '❌ VIOLATED' ELSE '✅ MET' END AS status
+FROM SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_EXPECTATION_STATUS
+WHERE table_name = 'RETAIL_CUSTOMER_CHURN_RISK'
+ORDER BY measurement_time DESC;
+
+-- 4d. Test expectations immediately without waiting for schedule
+-- SELECT * FROM TABLE(SYSTEM$EVALUATE_DATA_QUALITY_EXPECTATIONS(
+--     REF_ENTITY_NAME => 'RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK'));
+
+-- 4e. View latest DMF results (Data Quality Monitoring Results)
 -- ┌─────────────────────────────────────────────────────────────────────────────┐
 -- │ EXPECTATIONS / THRESHOLDS                                                   │
 -- ├────────────────────────┬────────────────────────────────────────────────────┤
@@ -508,6 +552,16 @@ ALTER ALERT freshness_breach_alert RESUME;
 -- View all applied DMFs
 SELECT * FROM MONITORING.dmf_configuration;
 
+-- View all expectations defined
+SELECT * FROM MONITORING.dmf_expectations;
+
+-- View expectation violations (PASS/FAIL based on native EXPECTATION clause)
+SELECT * FROM MONITORING.expectation_violations;
+
+-- Test expectations immediately (without waiting for schedule)
+SELECT * FROM TABLE(SYSTEM$EVALUATE_DATA_QUALITY_EXPECTATIONS(
+    REF_ENTITY_NAME => 'RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK'));
+
 -- View latest DQ results
 SELECT * FROM MONITORING.data_quality_results;
 
@@ -538,26 +592,34 @@ SELECT * FROM MONITORING.risk_distribution_summary;
 -- ============================================================================
 -- Summary (Using Snowflake Native Features):
 -- 
--- 1. SYSTEM DMFs Applied:
---    - NULL_COUNT on customer_id, churn_risk_score, risk_tier
---    - DUPLICATE_COUNT on customer_id
---    - UNIQUE_COUNT on customer_id, risk_tier
---    - FRESHNESS on score_calculated_at
---    - ROW_COUNT for completeness
+-- 1. SYSTEM DMFs Applied with EXPECTATIONS:
+--    - NULL_COUNT on customer_id       → EXPECTATION: VALUE = 0
+--    - NULL_COUNT on churn_risk_score  → EXPECTATION: VALUE = 0
+--    - NULL_COUNT on risk_tier         → EXPECTATION: VALUE = 0
+--    - DUPLICATE_COUNT on customer_id  → EXPECTATION: VALUE = 0
+--    - UNIQUE_COUNT on customer_id     → (informational, no expectation)
+--    - UNIQUE_COUNT on risk_tier       → (informational, no expectation)
+--    - FRESHNESS on score_calculated_at → EXPECTATION: VALUE <= 86400 (24h)
+--    - ROW_COUNT                        → EXPECTATION: VALUE >= 500
 --
--- 2. CUSTOM DMFs Created:
---    - risk_score_out_of_range (0-100 validation)
---    - risk_tier_misalignment (score-tier consistency)
---    - invalid_risk_tier (enum validation)
---    - high_risk_percentage (business threshold)
+-- 2. CUSTOM DMFs Created with EXPECTATIONS:
+--    - risk_score_out_of_range    → EXPECTATION: VALUE = 0
+--    - risk_tier_misalignment     → EXPECTATION: VALUE = 0
+--    - invalid_risk_tier          → EXPECTATION: VALUE = 0
+--    - high_risk_percentage       → EXPECTATION: VALUE <= 35
 --
 -- 3. Native Features Used:
+--    - EXPECTATION clause (native pass/fail evaluation)
+--    - DATA_QUALITY_MONITORING_EXPECTATION_STATUS view
+--    - SYSTEM$EVALUATE_DATA_QUALITY_EXPECTATIONS function
 --    - DATA_QUALITY_MONITORING_RESULTS view
 --    - DATA_METRIC_FUNCTION_REFERENCES
 --    - ACCOUNT_USAGE.QUERY_HISTORY
 --    - Snowflake ALERT objects
 --
--- Docs: https://docs.snowflake.com/en/user-guide/data-quality-intro
+-- Docs: 
+--   - https://docs.snowflake.com/en/user-guide/data-quality-intro
+--   - https://docs.snowflake.com/en/user-guide/data-quality-expectations
 -- ============================================================================
 
 
