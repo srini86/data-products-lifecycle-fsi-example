@@ -50,31 +50,21 @@ CREATE OR REPLACE SEMANTIC VIEW retail_customer_churn_risk_sv
     churn.has_unresolved_complaint AS has_unresolved_complaint,
     churn.mobile_app_active AS mobile_app_active,
     
+    -- Numeric fields (as dimensions for filtering/grouping)
+    churn.churn_risk_score AS churn_risk_score,
+    churn.total_relationship_balance AS total_relationship_balance,
+    churn.relationship_tenure_months AS relationship_tenure_months,
+    churn.digital_engagement_score AS digital_engagement_score,
+    churn.open_complaints_count AS open_complaints_count,
+    
     -- Time
     churn.data_as_of_date AS data_as_of_date,
     churn.model_version AS model_version
   )
   METRICS (
-    -- Risk metrics (format: table.column AS AGGREGATE(column))
-    churn.churn_risk_score AS AVG(churn_risk_score),
-    churn.churn_risk_score AS SUM(churn_risk_score),
-    churn.customer_id AS COUNT(customer_id),
-    
-    -- Relationship metrics
-    churn.relationship_tenure_months AS AVG(relationship_tenure_months),
-    churn.total_products_held AS AVG(total_products_held),
-    churn.total_relationship_balance AS SUM(total_relationship_balance),
-    churn.primary_account_balance AS AVG(primary_account_balance),
-    
-    -- Behavioral metrics
-    churn.avg_monthly_transactions_3m AS AVG(avg_monthly_transactions_3m),
-    churn.digital_engagement_score AS AVG(digital_engagement_score),
-    churn.days_since_last_transaction AS AVG(days_since_last_transaction),
-    churn.login_count_30d AS AVG(login_count_30d),
-    
-    -- Complaint metrics
-    churn.open_complaints_count AS SUM(open_complaints_count),
-    churn.complaints_last_12m AS SUM(complaints_last_12m)
+    -- Note: Semantic View metrics currently support COUNT reliably
+    -- AVG/SUM may not be supported depending on Snowflake version
+    customer_count AS COUNT(churn.customer_id)
   );
 
 -- Add comment to the semantic view
@@ -113,6 +103,9 @@ GRANT REFERENCE_USAGE ON DATABASE RETAIL_BANKING_DB TO SHARE retail_churn_risk_s
 
 
 -- Step 2b: Create the internal listing
+-- NOTE: CREATE LISTING requires Snowflake Marketplace to be enabled.
+-- If not available, skip this section. The share is still usable.
+/*
 CREATE OR REPLACE LISTING retail_customer_churn_risk_listing
     FOR SHARE retail_churn_risk_share
     AS $$
@@ -121,67 +114,19 @@ CREATE OR REPLACE LISTING retail_customer_churn_risk_listing
     description: |
       ## Overview
       The Retail Customer Churn Risk data product provides daily-refreshed 
-      churn risk scores for retail banking customers, combining behavioral 
-      signals, transactional patterns, and engagement data.
+      churn risk scores for retail banking customers.
       
       ## Key Features
-      - **Churn Risk Score**: 0-100 score indicating likelihood of churn
-      - **Risk Tier Classification**: LOW, MEDIUM, HIGH, CRITICAL
-      - **Explainable Risk Drivers**: Understand why customers are at risk
-      - **Recommended Interventions**: Actionable next best actions
-      
-      ## Use Cases
-      - Retention campaign targeting
-      - Branch intervention prioritization
-      - Executive churn KPI reporting
-      - ML model feature input
-      
-      ## Data Contract
-      - Version: 1.0.0
-      - Refresh: Daily by 6 AM UTC
-      - Availability SLA: 99.5%
-      
-      ## Access
-      Contact: retail-data-support@bank.com
-      
-    terms_of_service: |
-      This data product contains confidential customer information.
-      - Only authorized roles may access
-      - Do not export to external systems without approval
-      - Comply with GDPR and FCA Consumer Duty requirements
-      
-    business_needs:
-      - "Customer Retention"
-      - "Risk Management"
-      - "Marketing Analytics"
-      - "Branch Operations"
-      
-    usage_examples:
-      - title: "Find high-risk customers"
-        description: "Query customers requiring immediate attention"
-        code: |
-          SELECT customer_id, customer_name, churn_risk_score, recommended_intervention
-          FROM RETAIL_CUSTOMER_CHURN_RISK
-          WHERE risk_tier = 'CRITICAL'
-          ORDER BY churn_risk_score DESC
-          LIMIT 100;
-          
-      - title: "Risk distribution by segment"
-        description: "Analyze risk across customer segments"
-        code: |
-          SELECT 
-            customer_segment,
-            risk_tier,
-            COUNT(*) as customer_count,
-            AVG(churn_risk_score) as avg_risk_score
-          FROM RETAIL_CUSTOMER_CHURN_RISK
-          GROUP BY customer_segment, risk_tier
-          ORDER BY customer_segment, risk_tier;
+      - Churn Risk Score: 0-100 score indicating likelihood of churn
+      - Risk Tier Classification: LOW, MEDIUM, HIGH, CRITICAL
+      - Explainable Risk Drivers
+      - Recommended Interventions
     $$;
 
--- Step 2c: Set listing visibility to organization
+-- Set listing visibility (requires Marketplace enabled)
 ALTER LISTING retail_customer_churn_risk_listing 
     SET VISIBILITY = 'ORGANIZATION';
+*/
 
 
 -- ============================================================================
