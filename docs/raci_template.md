@@ -13,6 +13,59 @@
 
 ---
 
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           DATA PRODUCT LIFECYCLE                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│   ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐  │
+│   │ DISCOVER │───▶│  DESIGN  │───▶│ DELIVER  │───▶│ OPERATE  │───▶│  REFINE  │  │
+│   └──────────┘    └──────────┘    └──────────┘    └──────────┘    └──────────┘  │
+│        │               │               │               │               │         │
+│        ▼               ▼               ▼               ▼               ▼         │
+│   ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐  │
+│   │  Canvas  │    │ Contract │    │dbt Model │    │Monitoring│    │Contract  │  │
+│   │  (YAML)  │    │  (YAML)  │    │   +DMFs  │    │ +Alerts  │    │  v2.0    │  │
+│   └──────────┘    └──────────┘    └──────────┘    └──────────┘    └──────────┘  │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              SNOWFLAKE PLATFORM                                  │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│   SOURCE LAYER                 PRODUCT LAYER                 CONSUMPTION LAYER  │
+│   ─────────────                ─────────────                 ─────────────────  │
+│                                                                                  │
+│   ┌───────────┐               ┌─────────────────┐            ┌───────────────┐  │
+│   │ CUSTOMERS │──┐            │                 │        ┌──▶│Retention Team │  │
+│   ├───────────┤  │            │  RETAIL_CUSTOMER│        │   ├───────────────┤  │
+│   │ ACCOUNTS  │──┤            │   _CHURN_RISK   │        │   │Branch Managers│  │
+│   ├───────────┤  │   dbt +    │                 │  Share │   ├───────────────┤  │
+│   │TRANSACTIONS──┼──Cortex───▶│  • 38 columns   │────────┼──▶│Data Scientists│  │
+│   ├───────────┤  │            │  • Risk scores  │        │   ├───────────────┤  │
+│   │ DIGITAL_  │──┤            │  • CLV tiers    │        │   │Cortex Analyst │  │
+│   │ENGAGEMENT │  │            │  • Masked PII   │        │   └───────────────┘  │
+│   ├───────────┤  │            │                 │        │                      │
+│   │COMPLAINTS │──┘            └─────────────────┘        │   ┌───────────────┐  │
+│   └───────────┘                       │                  └──▶│  Marketplace  │  │
+│                                       │                      └───────────────┘  │
+│                                       ▼                                         │
+│                              ┌─────────────────┐                                │
+│                              │   MONITORING    │                                │
+│                              │  • DMFs         │                                │
+│                              │  • Freshness    │                                │
+│                              │  • Quality      │                                │
+│                              │  • Usage        │                                │
+│                              └─────────────────┘                                │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Teams Involved
 
 | Role | Team | Key Person (Example) |
@@ -22,19 +75,18 @@
 | **Platform Team** | DataOps | Sam Chen (Platform Engineer) |
 | **Governance** | Risk & Compliance | Taylor Smith (Data Steward) |
 | **Consumers** | Business Intelligence | Casey Brown (Retention Analyst) |
-| **Stakeholders** | Retail Banking | Morgan Davis (Head of Retention) |
 
 ---
 
 ## DISCOVER: Identifying the Churn Risk Opportunity
 
-| Activity | Product Owner | Data Engineer | Platform | Governance | Consumers | Stakeholders |
-|----------|:-------------:|:-------------:|:--------:|:----------:|:---------:|:------------:|
-| Identify churn prediction need | R | I | I | C | C | **A** |
-| Define success KPIs (reduce churn by 15%) | R | C | I | C | C | **A** |
-| Assess source data (customers, transactions, complaints) | C | R | C | I | I | I |
-| Create Data Product Canvas | **A** | C | I | C | R | C |
-| Prioritize on Q2 roadmap | **A** | I | I | C | I | C |
+| Activity | Product Owner | Data Engineer | Platform | Governance | Consumers |
+|----------|:-------------:|:-------------:|:--------:|:----------:|:---------:|
+| Identify churn prediction need | **A** | I | I | C | R |
+| Define success KPIs (reduce churn by 15%) | **A** | C | I | C | R |
+| Assess source data (customers, transactions, complaints) | C | **A** | C | I | I |
+| Create Data Product Canvas | **A** | C | I | C | R |
+| Prioritize on Q2 roadmap | **A** | I | I | C | C |
 
 **Outcome:** Data Product Canvas created (`01_discover/data_product_canvas.yaml`)
 
@@ -42,14 +94,14 @@
 
 ## DESIGN: Defining the Churn Risk Contract
 
-| Activity | Product Owner | Data Engineer | Platform | Governance | Consumers | Stakeholders |
-|----------|:-------------:|:-------------:|:--------:|:----------:|:---------:|:------------:|
-| Define 32 output columns (risk_score, risk_tier, etc.) | **A** | R | C | C | C | I |
-| Specify SLA (daily refresh by 6 AM UTC) | **A** | C | R | I | I | I |
-| Define quality rules (no nulls, valid ranges) | C | R | I | **A** | C | I |
-| Specify masking (customer_name, email → PII) | C | C | I | **A** | I | I |
-| Document source lineage (5 source tables) | I | R | C | **A** | I | I |
-| Review & sign-off contract | **A** | C | C | R | C | I |
+| Activity | Product Owner | Data Engineer | Platform | Governance | Consumers |
+|----------|:-------------:|:-------------:|:--------:|:----------:|:---------:|
+| Define 32 output columns (risk_score, risk_tier, etc.) | **A** | R | C | C | C |
+| Specify SLA (daily refresh by 6 AM UTC) | **A** | C | R | I | I |
+| Define quality rules (no nulls, valid ranges) | C | R | I | **A** | C |
+| Specify masking (customer_name, email → PII) | C | C | I | **A** | I |
+| Document source lineage (5 source tables) | I | R | C | **A** | I |
+| Review & sign-off contract | **A** | C | C | R | C |
 
 **Outcome:** Data Contract v1.0 created (`02_design/churn_risk_data_contract.yaml`)
 
@@ -57,15 +109,15 @@
 
 ## DELIVER: Building the Churn Risk Product
 
-| Activity | Product Owner | Data Engineer | Platform | Governance | Consumers | Stakeholders |
-|----------|:-------------:|:-------------:|:--------:|:----------:|:---------:|:------------:|
-| Generate dbt model via Streamlit app | I | **A** | C | I | I | I |
-| Build transformations (risk scoring logic) | I | **A** | C | I | I | I |
-| Implement masking policies on PII columns | I | R | C | **A** | I | I |
-| Set up DMFs (NULL_COUNT, FRESHNESS, etc.) | I | R | **A** | C | I | I |
-| Create semantic view for Cortex Analyst | C | **A** | C | I | C | I |
-| Publish to internal marketplace | **A** | R | C | C | I | I |
-| Deploy to RETAIL_BANKING_DB.DATA_PRODUCTS | I | R | **A** | C | I | I |
+| Activity | Product Owner | Data Engineer | Platform | Governance | Consumers |
+|----------|:-------------:|:-------------:|:--------:|:----------:|:---------:|
+| Generate dbt model via Streamlit app | I | **A** | C | I | I |
+| Build transformations (risk scoring logic) | I | **A** | C | I | I |
+| Implement masking policies on PII columns | I | R | C | **A** | I |
+| Set up DMFs (NULL_COUNT, FRESHNESS, etc.) | I | R | **A** | C | I |
+| Create semantic view for Cortex Analyst | C | **A** | C | I | C |
+| Publish to internal marketplace | **A** | R | C | C | I |
+| Deploy to RETAIL_BANKING_DB.DATA_PRODUCTS | I | R | **A** | C | I |
 
 **Outcome:** 
 - dbt model deployed (`retail_customer_churn_risk.sql`)
@@ -76,14 +128,14 @@
 
 ## OPERATE: Running the Churn Risk Product
 
-| Activity | Product Owner | Data Engineer | Platform | Governance | Consumers | Stakeholders |
-|----------|:-------------:|:-------------:|:--------:|:----------:|:---------:|:------------:|
-| Monitor 24-hour freshness SLA | I | C | **A** | I | I | I |
-| Monitor quality expectations (0 nulls, 0 duplicates) | I | C | **A** | R | I | I |
-| Respond to SLA breach alerts | C | R | **A** | C | I | I |
-| Track usage (retention_analyst, branch_manager roles) | **A** | I | R | I | I | C |
-| Verify masking on customer_name, email | I | I | C | **A** | I | I |
-| Monthly KPI report to Retail Banking | **A** | C | I | I | C | R |
+| Activity | Product Owner | Data Engineer | Platform | Governance | Consumers |
+|----------|:-------------:|:-------------:|:--------:|:----------:|:---------:|
+| Monitor 24-hour freshness SLA | I | C | **A** | I | I |
+| Monitor quality expectations (0 nulls, 0 duplicates) | I | C | **A** | R | I |
+| Respond to SLA breach alerts | C | R | **A** | C | I |
+| Track usage (retention_analyst, branch_manager roles) | **A** | I | R | I | C |
+| Verify masking on customer_name, email | I | I | C | **A** | I |
+| Monthly KPI report to business | **A** | C | I | I | R |
 
 **Outcome:** 
 - Monitoring dashboard (`04_operate/monitoring_observability.sql`)
@@ -94,16 +146,16 @@
 
 ## REFINE: Evolving to v2.0
 
-| Activity | Product Owner | Data Engineer | Platform | Governance | Consumers | Stakeholders |
-|----------|:-------------:|:-------------:|:--------:|:----------:|:---------:|:------------:|
-| Gather feedback (need CLV, confidence scores) | **A** | I | I | I | R | C |
-| Compliance request (vulnerability indicator for FCA) | C | I | I | **A** | I | R |
-| Propose 6 new columns for v2.0 | **A** | C | I | C | R | C |
-| Update data contract to v2.0 | **A** | R | I | C | C | I |
-| Regenerate dbt model from updated contract | I | **A** | R | C | I | I |
-| Archive v1.0 snapshot for audit | I | R | **A** | C | I | I |
-| Add DMFs for new columns (CLV, confidence) | I | R | **A** | C | I | I |
-| Communicate v2.0 changes to consumers | **A** | C | I | I | R | I |
+| Activity | Product Owner | Data Engineer | Platform | Governance | Consumers |
+|----------|:-------------:|:-------------:|:--------:|:----------:|:---------:|
+| Gather feedback (need CLV, confidence scores) | **A** | I | I | I | R |
+| Compliance request (vulnerability indicator for FCA) | C | I | I | **A** | I |
+| Propose 6 new columns for v2.0 | **A** | C | I | C | R |
+| Update data contract to v2.0 | **A** | R | I | C | C |
+| Regenerate dbt model from updated contract | I | **A** | R | C | I |
+| Archive v1.0 snapshot for audit | I | R | **A** | C | I |
+| Add DMFs for new columns (CLV, confidence) | I | R | **A** | C | I |
+| Communicate v2.0 changes to consumers | **A** | C | I | I | R |
 
 **Outcome:** 
 - Data Contract v2.0 (`05_refine/churn_risk_data_contract_v2.yaml`)
@@ -115,7 +167,7 @@
 
 | Stage | Accountable | Key Deliverable |
 |-------|-------------|-----------------|
-| **Discover** | Stakeholders → Product Owner | Data Product Canvas |
+| **Discover** | Product Owner | Data Product Canvas |
 | **Design** | Product Owner + Governance | Data Contract v1.0 |
 | **Deliver** | Data Engineer | Deployed model + DMFs |
 | **Operate** | Platform Team | Monitoring & 99%+ SLA |
@@ -127,7 +179,7 @@
 
 | Handoff | From | To | Artifact |
 |---------|------|-----|----------|
-| Business need → Technical spec | Stakeholders | Product Owner | Canvas |
+| Business need → Technical spec | Consumers | Product Owner | Canvas |
 | Canvas → Contract | Product Owner | Data Engineer | YAML contract |
 | Contract → Code | Data Engineer | Platform Team | dbt model + DMFs |
 | Monitoring → Feedback | Platform Team | Product Owner | Usage reports |
