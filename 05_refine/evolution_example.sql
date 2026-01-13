@@ -1,17 +1,15 @@
 -- ============================================================================
 -- REFINE: Data Product Evolution - Version 1.0 to 2.0
 -- ============================================================================
--- This script demonstrates the PROCESS of evolving the data product.
--- 
--- KEY PRINCIPLE: The transformation logic lives in the DATA CONTRACT, not here.
--- Use the Streamlit app with churn_risk_data_contract_v2.yaml to generate
--- the actual dbt model code.
+-- This script demonstrates evolving a data product using a contract-first
+-- approach. The transformation logic lives in the DATA CONTRACT, not here.
 --
--- This script handles:
--- 1. Archiving the previous version
--- 2. Deploying the generated v2 model (from Streamlit output)
--- 3. Creating backward-compatible views
--- 4. Tracking lineage
+-- APPROACH: Single table evolution (simple and clean)
+-- 1. Archive current version as snapshot for audit
+-- 2. Regenerate dbt model from updated contract (via Streamlit app)
+-- 3. Deploy - new columns are added to the existing table
+-- 4. Update monitoring for new columns
+--
 -- ============================================================================
 
 USE ROLE ACCOUNTADMIN;
@@ -29,177 +27,117 @@ After 6 months of operating v1.0, business requests new features:
 3. ACTION CONFIDENCE - Identify cases needing human review
 4. VULNERABILITY INDICATOR - FCA Consumer Duty compliance
 
-APPROACH:
-1. Update the data contract (churn_risk_data_contract_v2.yaml)
-2. Use Streamlit app to generate new dbt model from contract
-3. Run this script to deploy the evolution
+EVOLUTION PROCESS:
+1. Archive current version (audit trail)
+2. Update the data contract (churn_risk_data_contract_v2.yaml)
+3. Regenerate dbt model via Streamlit app
+4. Deploy the updated model (adds new columns to existing table)
+5. Update monitoring for new columns
 */
 
 
 -- ============================================================================
--- STEP 1: ARCHIVE CURRENT VERSION
+-- STEP 1: ARCHIVE CURRENT VERSION (Audit Snapshot)
 -- ============================================================================
--- Before deploying v2, preserve v1 for audit and rollback
+-- Before evolving, preserve current state for audit and potential rollback
 
-CREATE TABLE IF NOT EXISTS RETAIL_CUSTOMER_CHURN_RISK_V1_ARCHIVE AS
+CREATE TABLE IF NOT EXISTS RETAIL_CUSTOMER_CHURN_RISK_V1_SNAPSHOT AS
 SELECT 
     *,
-    '1.0.0' AS archive_version,
-    CURRENT_TIMESTAMP() AS archived_at,
-    'Evolved to v2.0 with new features' AS archive_reason
+    '1.0.0' AS snapshot_version,
+    CURRENT_TIMESTAMP() AS snapshot_at,
+    'Pre-evolution snapshot before v2.0 upgrade' AS snapshot_reason
 FROM RETAIL_CUSTOMER_CHURN_RISK;
 
-COMMENT ON TABLE RETAIL_CUSTOMER_CHURN_RISK_V1_ARCHIVE IS 
-'Archived version 1.0.0 - superseded by v2.0 with CLV, product downgrade, and vulnerability features';
+COMMENT ON TABLE RETAIL_CUSTOMER_CHURN_RISK_V1_SNAPSHOT IS 
+'Audit snapshot of v1.0.0 taken before evolution to v2.0. 
+Contains 32 columns. Use for compliance audit or rollback if needed.';
+
+SELECT 'Step 1 Complete: Archived ' || COUNT(*) || ' rows to V1_SNAPSHOT' AS status
+FROM RETAIL_CUSTOMER_CHURN_RISK_V1_SNAPSHOT;
 
 
 -- ============================================================================
--- STEP 2: GENERATE V2 MODEL FROM CONTRACT
+-- STEP 2: UPDATE DATA CONTRACT
 -- ============================================================================
 /*
-DO NOT hardcode transformation logic here!
+The v2 contract is already prepared: 05_refine/churn_risk_data_contract_v2.yaml
 
-Instead:
-1. Open the Streamlit dbt Generator app
-2. Paste contents of: 05_refine/churn_risk_data_contract_v2.yaml
-3. Click "Generate All Outputs"
-4. Download: retail_customer_churn_risk.sql (the v2 dbt model)
+Key additions in v2 contract:
+- products_held_90d_ago: Track product count from 90 days ago
+- product_downgrade_flag: True if customer reduced products
+- estimated_clv: Customer lifetime value estimate
+- clv_tier: HIGH_VALUE / MEDIUM_VALUE / STANDARD
+- action_confidence_score: Model confidence (0-100)
+- vulnerability_indicator: FCA Consumer Duty flag
 
-The contract defines:
-- New columns: products_held_90d_ago, product_downgrade_flag, 
-  estimated_clv, clv_tier, action_confidence_score, vulnerability_indicator
-- Derivation logic for each column
-- Data quality rules
-- Masking policies
-
-The Streamlit app + Cortex LLM generates the SQL from these specifications.
+The contract defines derivation logic, quality rules, and masking for each.
 */
 
 
 -- ============================================================================
--- STEP 3: DEPLOY GENERATED MODEL
+-- STEP 3: GENERATE V2 MODEL FROM CONTRACT
 -- ============================================================================
--- After generating the dbt model from the contract, deploy it:
+/*
+Use the Streamlit dbt Generator app:
 
--- Option A: Run in Snowflake dbt Project
--- dbt run --select retail_customer_churn_risk
+1. Open: Snowsight → Projects → Streamlit → dbt_code_generator
+2. Paste contents of: 05_refine/churn_risk_data_contract_v2.yaml
+3. Click "Generate All Outputs"
+4. Download the generated SQL
 
--- Option B: Execute the generated SQL directly
--- Copy the output from Streamlit and run here:
-
--- >>> PASTE GENERATED SQL FROM STREAMLIT APP HERE <<<
--- The generated model will create RETAIL_CUSTOMER_CHURN_RISK_V2
--- with all 38 columns (32 original + 6 new from v2 contract)
-
-
--- ============================================================================
--- STEP 4: CREATE BACKWARD-COMPATIBLE VIEW
--- ============================================================================
--- Existing consumers continue to work with original column set
-
-CREATE OR REPLACE VIEW RETAIL_CUSTOMER_CHURN_RISK AS
-SELECT 
-    -- Original v1.0 columns only (for backward compatibility)
-    customer_id,
-    customer_name,
-    customer_segment,
-    region,
-    relationship_tenure_months,
-    total_products_held,
-    primary_account_balance,
-    total_relationship_balance,
-    avg_monthly_transactions_3m,
-    transaction_trend,
-    balance_trend,
-    days_since_last_transaction,
-    mobile_app_active,
-    login_count_30d,
-    digital_engagement_score,
-    open_complaints_count,
-    complaints_last_12m,
-    has_unresolved_complaint,
-    churn_risk_score,
-    risk_tier,
-    declining_balance_flag,
-    reduced_activity_flag,
-    low_engagement_flag,
-    complaint_flag,
-    dormancy_flag,
-    primary_risk_driver,
-    risk_drivers_json,
-    recommended_intervention,
-    intervention_priority,
-    score_calculated_at,
-    data_as_of_date,
-    model_version
-FROM RETAIL_CUSTOMER_CHURN_RISK_V2;
-
-COMMENT ON VIEW RETAIL_CUSTOMER_CHURN_RISK IS 
-'Backward-compatible view exposing v1.0 schema. 
-For new features (CLV, vulnerability, confidence), use RETAIL_CUSTOMER_CHURN_RISK_V2 directly.
-Contract version: 2.0.0 | Backward compatible with: 1.0.0';
+The app + Cortex LLM generates the complete dbt model from the contract.
+*/
 
 
 -- ============================================================================
--- STEP 5: CREATE ENHANCED VIEW FOR NEW CONSUMERS
+-- STEP 4: DEPLOY UPDATED MODEL
 -- ============================================================================
--- New consumers get full v2 features with derived priority columns
+/*
+Deploy the generated model using one of these methods:
 
-CREATE OR REPLACE VIEW RETAIL_CUSTOMER_CHURN_RISK_ENHANCED AS
-SELECT 
-    *,
-    
-    -- Derived: Combined priority (risk + CLV)
-    CASE 
-        WHEN risk_tier = 'CRITICAL' AND clv_tier = 'HIGH_VALUE' THEN 1
-        WHEN risk_tier = 'CRITICAL' THEN 2
-        WHEN risk_tier = 'HIGH' AND clv_tier = 'HIGH_VALUE' THEN 3
-        WHEN risk_tier = 'HIGH' THEN 4
-        WHEN clv_tier = 'HIGH_VALUE' THEN 5
-        ELSE 6
-    END AS combined_priority,
-    
-    -- Derived: Final recommendation with confidence check
-    CASE 
-        WHEN action_confidence_score < 50 THEN 'ESCALATE_TO_RM'
-        WHEN vulnerability_indicator THEN 'VULNERABLE_CUSTOMER_PROTOCOL'
-        ELSE recommended_intervention
-    END AS final_recommendation,
-    
-    -- Derived: Requires human review flag
-    (action_confidence_score < 50 OR vulnerability_indicator) AS requires_human_review
-    
-FROM RETAIL_CUSTOMER_CHURN_RISK_V2;
+Option A: dbt Project (Recommended)
+  - Add generated SQL to dbt models folder
+  - Run: dbt run --select retail_customer_churn_risk
+  - The model creates/replaces the table with new columns
 
-COMMENT ON VIEW RETAIL_CUSTOMER_CHURN_RISK_ENHANCED IS 
-'Full v2.0 feature set with derived priority and recommendation columns.
-Use for retention campaigns and branch operations.';
+Option B: Direct SQL
+  - Copy generated SQL from Streamlit app
+  - Run in Snowsight worksheet
+  - The CREATE OR REPLACE TABLE adds all columns including new ones
+
+After deployment, the table will have 38 columns (32 original + 6 new).
+*/
+
+-- Verify table structure after deployment (run after Step 4)
+-- DESCRIBE TABLE RETAIL_CUSTOMER_CHURN_RISK;
 
 
 -- ============================================================================
--- STEP 6: TRACK LINEAGE
+-- STEP 5: TRACK LINEAGE
 -- ============================================================================
+-- Record the evolution for governance and audit
 
 CREATE TABLE IF NOT EXISTS DATA_PRODUCT_LINEAGE (
     lineage_id          VARCHAR(50) DEFAULT UUID_STRING(),
-    parent_product      VARCHAR(200),
-    parent_version      VARCHAR(20),
-    child_product       VARCHAR(200),
-    child_version       VARCHAR(20),
-    relationship_type   VARCHAR(50),
-    effective_date      DATE,
+    product_name        VARCHAR(200),
+    from_version        VARCHAR(20),
+    to_version          VARCHAR(20),
+    evolution_type      VARCHAR(50),
+    evolution_date      DATE,
     contract_file       VARCHAR(200),
     changes             VARIANT,
     PRIMARY KEY (lineage_id)
 );
 
 INSERT INTO DATA_PRODUCT_LINEAGE (
-    parent_product, parent_version, child_product, child_version, 
-    relationship_type, effective_date, contract_file, changes
+    product_name, from_version, to_version, 
+    evolution_type, evolution_date, contract_file, changes
 ) VALUES (
-    'RETAIL_CUSTOMER_CHURN_RISK', '1.0.0', 
-    'RETAIL_CUSTOMER_CHURN_RISK', '2.0.0',
-    'EVOLVED',
+    'RETAIL_CUSTOMER_CHURN_RISK', 
+    '1.0.0', 
+    '2.0.0',
+    'ADDITIVE',
     CURRENT_DATE(),
     '05_refine/churn_risk_data_contract_v2.yaml',
     PARSE_JSON('{
@@ -211,68 +149,93 @@ INSERT INTO DATA_PRODUCT_LINEAGE (
             "action_confidence_score",
             "vulnerability_indicator"
         ],
+        "removed_columns": [],
         "breaking_changes": false,
-        "backward_compatible": true,
         "generated_by": "Streamlit dbt Generator App",
-        "reason": "Business feedback: Add CLV prioritization, product downgrade tracking, FCA Consumer Duty compliance"
+        "business_reason": "Add CLV prioritization, product downgrade tracking, FCA Consumer Duty compliance"
     }')
 );
 
 
 -- ============================================================================
--- STEP 7: UPDATE MONITORING (Apply DMFs to new columns)
+-- STEP 6: UPDATE MONITORING FOR NEW COLUMNS
 -- ============================================================================
 -- Add data quality checks for new v2 columns
 
--- Null checks on new columns
-ALTER TABLE RETAIL_CUSTOMER_CHURN_RISK_V2
+-- Null checks on new columns (should always have values)
+ALTER TABLE RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT 
-    ON (estimated_clv);
+    ON (estimated_clv)
+    EXPECTATION no_null_clv (VALUE = 0);
 
-ALTER TABLE RETAIL_CUSTOMER_CHURN_RISK_V2
+ALTER TABLE RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT 
-    ON (action_confidence_score);
+    ON (clv_tier)
+    EXPECTATION no_null_clv_tier (VALUE = 0);
 
--- Custom DMF for CLV tier validation
-CREATE OR REPLACE DATA METRIC FUNCTION invalid_clv_tier(
-    ARG_T TABLE(ARG_C VARCHAR)
-)
-RETURNS NUMBER
-AS
-$$
-    SELECT COUNT(*)
-    FROM ARG_T
-    WHERE ARG_C NOT IN ('HIGH_VALUE', 'MEDIUM_VALUE', 'STANDARD')
-$$;
+ALTER TABLE RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT 
+    ON (action_confidence_score)
+    EXPECTATION no_null_confidence (VALUE = 0);
 
-ALTER TABLE RETAIL_CUSTOMER_CHURN_RISK_V2
-    ADD DATA METRIC FUNCTION MONITORING.invalid_clv_tier 
+-- Unique count on new dimension (cardinality tracking)
+ALTER TABLE RETAIL_CUSTOMER_CHURN_RISK
+    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.UNIQUE_COUNT 
     ON (clv_tier);
 
 
 -- ============================================================================
--- STEP 8: VERIFY EVOLUTION
+-- STEP 7: VERIFY EVOLUTION
 -- ============================================================================
 
--- Compare v1 archive vs v2
+-- Compare snapshot vs current
 SELECT 
-    'v1.0 (Archive)' AS version,
-    COUNT(*) AS customers,
-    32 AS column_count
-FROM RETAIL_CUSTOMER_CHURN_RISK_V1_ARCHIVE
+    'v1.0 (Snapshot)' AS version,
+    COUNT(*) AS row_count,
+    32 AS column_count,
+    MAX(snapshot_at) AS as_of
+FROM RETAIL_CUSTOMER_CHURN_RISK_V1_SNAPSHOT
 
 UNION ALL
 
 SELECT 
     'v2.0 (Current)' AS version,
-    COUNT(*) AS customers,
-    38 AS column_count  -- 32 original + 6 new
-FROM RETAIL_CUSTOMER_CHURN_RISK_V2;
+    COUNT(*) AS row_count,
+    38 AS column_count,  -- 32 original + 6 new
+    MAX(score_calculated_at) AS as_of
+FROM RETAIL_CUSTOMER_CHURN_RISK;
 
--- View lineage
-SELECT * FROM DATA_PRODUCT_LINEAGE 
-WHERE child_product = 'RETAIL_CUSTOMER_CHURN_RISK'
-ORDER BY effective_date DESC;
+
+-- View evolution history
+SELECT 
+    product_name,
+    from_version || ' → ' || to_version AS evolution,
+    evolution_type,
+    evolution_date,
+    changes:new_columns AS new_columns,
+    changes:business_reason::STRING AS reason
+FROM DATA_PRODUCT_LINEAGE 
+WHERE product_name = 'RETAIL_CUSTOMER_CHURN_RISK'
+ORDER BY evolution_date DESC;
+
+
+-- Sample new columns (run after model deployment)
+SELECT 
+    customer_id,
+    customer_name,
+    churn_risk_score,
+    risk_tier,
+    -- New v2 columns:
+    products_held_90d_ago,
+    product_downgrade_flag,
+    estimated_clv,
+    clv_tier,
+    action_confidence_score,
+    vulnerability_indicator
+FROM RETAIL_CUSTOMER_CHURN_RISK
+WHERE risk_tier IN ('CRITICAL', 'HIGH')
+ORDER BY estimated_clv DESC
+LIMIT 10;
 
 
 -- ============================================================================
@@ -280,19 +243,20 @@ ORDER BY effective_date DESC;
 -- ============================================================================
 /*
 Summary:
-1. ✅ Archived v1.0 for audit trail
-2. ✅ Generated v2.0 model from contract (via Streamlit app)
-3. ✅ Backward-compatible view for existing consumers  
-4. ✅ Enhanced view for new consumers
-5. ✅ Lineage tracking with contract reference
-6. ✅ DMFs applied to new columns
+1. ✅ Archived v1.0 snapshot for audit trail
+2. ✅ Updated contract with new requirements (v2.yaml)
+3. ✅ Generated v2.0 model from contract (via Streamlit app)
+4. ✅ Deployed - existing table now has 6 new columns
+5. ✅ Tracked evolution in lineage table
+6. ✅ Added DMFs for new columns
 
-KEY POINT: 
+KEY PRINCIPLE: 
 The transformation logic is defined in churn_risk_data_contract_v2.yaml
-and generated by the Streamlit app. This script only handles deployment.
+and generated by the Streamlit app. This script handles deployment only.
 
 To evolve again (v2.0 → v3.0):
-1. Update the contract YAML with new requirements
-2. Regenerate code via Streamlit app
-3. Run deployment script
+1. Archive current version as snapshot
+2. Update contract YAML with new requirements  
+3. Regenerate code via Streamlit app
+4. Deploy and update monitoring
 */
