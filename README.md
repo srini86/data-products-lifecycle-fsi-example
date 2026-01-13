@@ -26,7 +26,7 @@ This repository follows a 5-stage lifecycle for delivering data products:
 
 ## How to Use This Repo
 
-**Prerequisites:** The Discover and Design phases are complete. The data product canvas (`01_discover/data_product_canvas.yaml`) and data contract (`02_design/churn_risk_data_contract.yaml`) are ready. The steps below walk through the **Deliver**, **Operate**, and **Refine** phases.
+**Prerequisites:** The Discover and Design phases are assumed to be complete and the artefacts from these phases are made available as the data product canvas (`01_discover/data_product_canvas.yaml`) and data contract (`02_design/churn_risk_data_contract.yaml`). The steps below walk through the **Deliver**, **Operate**, and **Refine** phases.
 
 ### Step 1: Setup Environment
 
