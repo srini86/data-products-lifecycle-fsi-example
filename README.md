@@ -1,5 +1,7 @@
 # Data Products for Financial Services
 
+> ⚠️ **Disclaimer:** This is a personal project and not an official Snowflake resource.
+
 Build a production-ready **Retail Customer Churn Risk** data product on Snowflake — complete with AI-generated dbt models, masking policies, semantic views, and data quality monitoring.
 
 ---
