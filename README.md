@@ -100,7 +100,9 @@ Run `06_cleanup/cleanup.sql` to remove all demo resources.
 │   └── generated_output_samples/   # Example outputs
 ├── 04_operate/                     # Monitoring & Observability
 ├── 05_refine/                      # Evolution example (v2 contract)
-└── 06_cleanup/                     # Cleanup script
+├── 06_cleanup/                     # Cleanup script
+└── docs/
+    └── raci_template.md            # RACI matrix for team collaboration
 ```
 
 ---
