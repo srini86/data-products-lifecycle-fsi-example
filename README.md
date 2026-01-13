@@ -62,14 +62,19 @@ This repository follows a 5-stage lifecycle for delivering data products:
    - Create a **dbt Project** in Snowsight → Add `retail_customer_churn_risk.sql` and `schema.yml` to the 'models' folder in DBT Project → **Compile** and **Run**
 2. **Apply masking policies:**
    - Run `masking_policies.sql` in a Snowsight Worksheet
-3. **Create Semantic View and Marketplace listing:**
+3. **Set up data quality rules:**
+   - Run `03_deliver/02_data_quality_dmf.sql` — Sets up Data Metric Functions with expectations from the contract
+4. **Create Semantic View and Marketplace listing:**
    - Run `03_deliver/03_semantic_view_marketplace.sql`
    - ⚠️ **Before running:** Update `YOUR_ACCOUNT_NAME` and `your.email@company.com` with your values
 
-### Step 4: Setup Monitoring
+### Step 4: Operate & Monitor
 
-Run in Snowsight:
-- `04_operate/monitoring_observability.sql` — Sets up Data Metric Functions (DMFs) and alerts
+Once the data product is live, the focus shifts to running it well. Run in Snowsight:
+- `04_operate/monitoring_observability.sql` — Sets up ongoing monitoring for:
+  - **Reliability:** Freshness SLAs, availability, data gaps
+  - **Quality & Compliance:** Expectation status, masking verification, lineage
+  - **Adoption & Impact:** Usage by role/user, query patterns, dependencies
 
 ### Step 5: Verify the Data Product
 
@@ -90,9 +95,10 @@ Run `06_cleanup/cleanup.sql` to remove all demo resources.
 ├── 02_design/                      # Data Contract (YAML)
 ├── 03_deliver/
 │   ├── 01_dbt_generator_app.py     # Streamlit app (Cortex AI)
-│   ├── generated_output_samples/   # Example outputs
-│   └── 03_semantic_view_marketplace.sql
-├── 04_operate/                     # Data Metric Functions
+│   ├── 02_data_quality_dmf.sql     # Data Metric Functions setup
+│   ├── 03_semantic_view_marketplace.sql
+│   └── generated_output_samples/   # Example outputs
+├── 04_operate/                     # Monitoring & Observability
 ├── 05_refine/                      # Evolution example (v2 contract)
 └── 06_cleanup/                     # Cleanup script
 ```
