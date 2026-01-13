@@ -1,0 +1,84 @@
+# ============================================================================
+# DATA CONTRACT: Retail Customer Churn Risk (Abbreviated)
+# ============================================================================
+
+apiVersion: v1
+kind: DataContract
+metadata:
+  name: retail-customer-churn-risk
+  version: "1.0.0"
+  domain: retail_banking
+  classification: confidential
+
+spec:
+  # WHO OWNS IT
+  owner:
+    name: "Alex Morgan"
+    team: "Retail Customer Analytics"
+    email: "alex.morgan@bank.com"
+
+  # WHERE DATA COMES FROM
+  sources:
+    - RETAIL_BANKING_DB.RAW.CUSTOMERS
+    - RETAIL_BANKING_DB.RAW.ACCOUNTS
+    - RETAIL_BANKING_DB.RAW.TRANSACTIONS
+    - RETAIL_BANKING_DB.RAW.DIGITAL_ENGAGEMENT
+    - RETAIL_BANKING_DB.RAW.COMPLAINTS
+
+  # WHERE IT LANDS
+  destination: RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+
+  # WHAT IT CONTAINS (key columns only)
+  schema:
+    grain: "One row per customer"
+    columns:
+      - name: customer_id
+        type: string
+        constraints: [required, unique]
+        
+      - name: customer_name
+        type: string
+        pii: true
+        masking: CUSTOMER_NAME_MASK
+        
+      - name: churn_risk_score
+        type: integer
+        range: [0, 100]
+        derivation: "Weighted factors: balance, activity, engagement, complaints, dormancy"
+        
+      - name: risk_tier
+        type: string
+        values: [LOW, MEDIUM, HIGH, CRITICAL]
+        
+      - name: primary_risk_driver
+        type: string
+        values: [BALANCE_DECLINE, ACTIVITY_REDUCTION, LOW_ENGAGEMENT, COMPLAINTS, DORMANCY]
+        
+      - name: recommended_intervention
+        type: string
+        values: [NO_ACTION, DIGITAL_ENGAGEMENT, RELATIONSHIP_CALL, RETENTION_OFFER, URGENT_ESCALATION]
+
+  # DATA QUALITY
+  quality:
+    completeness: "customer_id, churn_risk_score, risk_tier = 100%"
+    uniqueness: "customer_id must be unique"
+    freshness: "Max 24 hours old"
+    business_rules:
+      - "Risk tier must match score thresholds"
+      - "HIGH/CRITICAL customers must have at least one risk driver"
+
+  # SERVICE LEVEL
+  sla:
+    availability: 99.5%
+    refresh: "Daily by 6 AM UTC"
+    query_response: "< 5 seconds"
+
+  # ACCESS & COMPLIANCE
+  access:
+    authorized_roles: [retention_analyst, branch_manager, compliance_officer]
+    masking: "PII fields masked for unauthorized users"
+    retention: "7 years"
+    
+  compliance:
+    regulations: [FCA Consumer Duty, GDPR]
+    explainability: "All scores must have documented risk drivers"
