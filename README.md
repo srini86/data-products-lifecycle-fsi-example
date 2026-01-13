@@ -68,18 +68,18 @@ This repository follows a 5-stage lifecycle for delivering data products:
    - Run `03_deliver/03_semantic_view_marketplace.sql`
    - ⚠️ **Before running:** Update `YOUR_ACCOUNT_NAME` and `your.email@company.com` with your values
 
-### Step 4: Operate & Monitor
+### Step 4: Verify the Data Product
+
+1. **Database Explorer:** Snowsight → **Data** → **Databases** → `RETAIL_BANKING_DB` → `DATA_PRODUCTS` → `RETAIL_CUSTOMER_CHURN_RISK`
+2. **Private Sharing:** Snowsight → **Catalog** → **Internal Marketplace** → Search for "Retail Customer Churn Risk"
+
+### Step 5: Operate & Monitor
 
 Once the data product is live, the focus shifts to running it well. Run in Snowsight:
 - `04_operate/monitoring_observability.sql` — Sets up ongoing monitoring for:
   - **Reliability:** Freshness SLAs, availability, data gaps
   - **Quality & Compliance:** Expectation status, masking verification, lineage
   - **Adoption & Impact:** Usage by role/user, query patterns, dependencies
-
-### Step 5: Verify the Data Product
-
-1. **Database Explorer:** Snowsight → **Data** → **Databases** → `RETAIL_BANKING_DB` → `DATA_PRODUCTS` → `RETAIL_CUSTOMER_CHURN_RISK`
-2. **Private Sharing:** Snowsight → **Catalog** → **Internal Marketplace** → Search for "Retail Customer Churn Risk"
 
 ### Cleanup
 
