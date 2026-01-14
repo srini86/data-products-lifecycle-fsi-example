@@ -62,21 +62,54 @@ DIMENSIONS (
     churn.model_version AS model_version
   )
   METRICS (
-    -- Note: Semantic View metrics currently support COUNT reliably
-    -- AVG/SUM may not be supported depending on Snowflake version
-    customer_count AS COUNT(churn.customer_id)
+    -- Customer counts
+    customer_count AS COUNT(churn.customer_id),
+    
+    -- Risk tier metrics - embedding official definitions:
+    -- CRITICAL = score 76-100 (immediate intervention)
+    -- HIGH = score 51-75 (proactive outreach needed)
+    -- MEDIUM = score 26-50 (monitor closely)
+    -- LOW = score 0-25 (healthy relationship)
+    critical_risk_count AS COUNT_IF(churn.risk_tier = 'CRITICAL'),
+    high_risk_count AS COUNT_IF(churn.risk_tier = 'HIGH'),
+    medium_risk_count AS COUNT_IF(churn.risk_tier = 'MEDIUM'),
+    low_risk_count AS COUNT_IF(churn.risk_tier = 'LOW'),
+    
+    -- Combined at-risk count (HIGH + CRITICAL requiring action)
+    at_risk_count AS COUNT_IF(churn.risk_tier IN ('HIGH', 'CRITICAL')),
+    
+    -- Flag-based metrics - official eligibility definitions:
+    -- declining_balance_flag: balance < £500 or primary < £100
+    -- dormancy_flag: no transactions in 45+ days
+    declining_balance_count AS COUNT_IF(churn.declining_balance_flag = TRUE),
+    dormant_customer_count AS COUNT_IF(churn.dormancy_flag = TRUE),
+    complaint_flag_count AS COUNT_IF(churn.complaint_flag = TRUE),
+    low_engagement_count AS COUNT_IF(churn.low_engagement_flag = TRUE)
 );
 
--- Add comment to the semantic view
+-- Add comment to the semantic view with official definitions
 COMMENT ON SEMANTIC VIEW retail_customer_churn_risk_sv IS 
 'Retail Customer Churn Risk Data Product - Semantic View for Cortex Analyst.
 Contract Version: 1.0.0 | Owner: alex.morgan@bank.com | SLA: Daily refresh by 6 AM UTC
 
+RISK TIER DEFINITIONS (Official):
+- CRITICAL (76-100): Immediate intervention required, highest churn probability
+- HIGH (51-75): Proactive retention outreach needed
+- MEDIUM (26-50): Monitor closely, early warning signals
+- LOW (0-25): Healthy customer relationship
+
+ELIGIBILITY FLAGS:
+- declining_balance_flag: Balance < £500 OR primary account < £100
+- reduced_activity_flag: Transactions down >30% vs prior period
+- low_engagement_flag: <3 logins in 30d AND no mobile app
+- complaint_flag: Open complaint OR 2+ complaints in 12 months
+- dormancy_flag: No transactions in 45+ days (strongest indicator)
+
 Example questions:
-- What is the average churn risk score by customer segment?
-- Show me high risk customers in the South East region
-- Which regions have the most critical risk customers?
-- What is the total balance at risk for customers with complaints?';
+- How many customers are at risk (HIGH or CRITICAL)?
+- Show me critical risk customers in the South East region
+- What percentage of customers have the dormancy flag?
+- Which region has the most declining balance customers?';
 
 -- Verify semantic view was created
 SHOW SEMANTIC VIEWS LIKE 'retail_customer_churn_risk_sv';
