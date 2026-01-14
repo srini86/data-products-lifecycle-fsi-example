@@ -3,12 +3,14 @@
 DBT CODE GENERATOR - Streamlit in Snowflake (SiS) App
 ============================================================================
 This app takes a Data Contract YAML as input and generates:
-- dbt model SQL (transformation logic)
-- schema.yml (documentation and tests)
-- masking_policies.sql (Snowflake masking policies)
+- dbt model SQL (transformation logic) - AI-generated via Cortex
+- schema.yml (documentation and tests) - Template-based
+- masking_policies.sql (Snowflake masking policies) - Template-based
+- dmf_setup.sql (Data Metric Functions) - Template-based
 
 The contract's English definitions (derivation, behavior) are interpreted
-by Cortex LLM to produce Snowflake-native SQL.
+by Cortex LLM to produce Snowflake-native SQL for transformations.
+Other outputs use deterministic template parsing.
 
 Deploy to Snowflake:
 1. Upload this file to a Snowflake stage
@@ -444,6 +446,200 @@ def generate_masking_policies_sql(contract_info: Dict, session: Session = None, 
     return "\n".join(sql_parts)
 
 
+def generate_dmf_sql(contract_info: Dict) -> str:
+    """Generate Data Metric Functions SQL from contract quality rules (Template-based)"""
+    
+    full_table_name = f"{contract_info['target_database']}.{contract_info['target_schema']}.{contract_info['target_table']}"
+    
+    sql_parts = [
+        "-- ============================================================================",
+        "-- DATA METRIC FUNCTIONS: Generated from Data Contract",
+        "-- ============================================================================",
+        f"-- Contract: {contract_info['name']} v{contract_info['version']}",
+        f"-- Generated: {datetime.now().isoformat()}",
+        "-- Template-based generation from contract quality rules",
+        "-- ============================================================================",
+        "",
+        "USE ROLE ACCOUNTADMIN;",
+        f"USE DATABASE {contract_info['target_database']};",
+        f"USE SCHEMA {contract_info['target_schema']};",
+        "",
+        "-- ============================================================================",
+        "-- PART 1: SET DMF SCHEDULE",
+        "-- ============================================================================",
+        "",
+        f"ALTER TABLE {full_table_name}",
+        "    SET DATA_METRIC_SCHEDULE = 'USING CRON 0,30 * * * * UTC';",
+        ""
+    ]
+    
+    # Part 2: NULL_COUNT for required columns
+    sql_parts.extend([
+        "-- ============================================================================",
+        "-- PART 2: COMPLETENESS CHECKS (NULL_COUNT)",
+        "-- ============================================================================",
+        "-- Columns with required: true in contract must not have nulls",
+        ""
+    ])
+    
+    required_columns = [col['name'] for col in contract_info['columns'] if col.get('required')]
+    # Also check data_quality.completeness for 100% columns
+    completeness = contract_info.get('data_quality', {}).get('completeness', {})
+    for col_name, pct in completeness.items():
+        if pct == 100 and col_name not in required_columns:
+            required_columns.append(col_name)
+    
+    # Always include primary key
+    pk = contract_info.get('primary_key', '')
+    if pk and pk not in required_columns:
+        required_columns.insert(0, pk)
+    
+    for col_name in required_columns:
+        expectation_name = f"no_null_{col_name}".lower()
+        sql_parts.extend([
+            f"ALTER TABLE {full_table_name}",
+            f"    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.NULL_COUNT",
+            f"    ON ({col_name})",
+            f"    EXPECTATION {expectation_name} (VALUE = 0);",
+            ""
+        ])
+    
+    # Part 3: DUPLICATE_COUNT for primary key
+    if pk:
+        sql_parts.extend([
+            "-- ============================================================================",
+            "-- PART 3: UNIQUENESS CHECK (DUPLICATE_COUNT)",
+            "-- ============================================================================",
+            f"-- Primary key ({pk}) must be unique per contract",
+            "",
+            f"ALTER TABLE {full_table_name}",
+            f"    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.DUPLICATE_COUNT",
+            f"    ON ({pk})",
+            f"    EXPECTATION no_duplicate_{pk.lower()} (VALUE = 0);",
+            ""
+        ])
+    
+    # Part 4: UNIQUE_COUNT for key dimensions (informational)
+    dimension_columns = []
+    for col in contract_info['columns']:
+        tags = col.get('tags', [])
+        col_type = col.get('type', '')
+        # Include columns tagged as classification, segment, tier, or string enums
+        if any(tag in tags for tag in ['classification', 'segment', 'tier', 'risk_tier', 'geography']):
+            dimension_columns.append(col['name'])
+        elif 'enum' in str(col.get('constraints', {})):
+            dimension_columns.append(col['name'])
+    
+    if dimension_columns:
+        sql_parts.extend([
+            "-- ============================================================================",
+            "-- PART 4: CARDINALITY TRACKING (UNIQUE_COUNT)",
+            "-- ============================================================================",
+            "-- Track distinct values for key dimensions (informational)",
+            ""
+        ])
+        for col_name in dimension_columns:
+            sql_parts.extend([
+                f"ALTER TABLE {full_table_name}",
+                f"    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.UNIQUE_COUNT",
+                f"    ON ({col_name});",
+                ""
+            ])
+    
+    # Part 5: FRESHNESS based on SLA
+    # Find timestamp column
+    timestamp_cols = [col['name'] for col in contract_info['columns'] 
+                      if col.get('type') in ['timestamp', 'timestamp_ntz', 'timestamp_ltz']
+                      or 'timestamp' in col.get('tags', [])
+                      or 'calculated_at' in col['name'].lower()]
+    
+    freshness_config = contract_info.get('data_quality', {}).get('freshness', {})
+    max_age = freshness_config.get('max_age', '25 hours')
+    
+    # Convert to seconds (simple parsing)
+    if 'hour' in max_age.lower():
+        try:
+            hours = int(''.join(filter(str.isdigit, max_age)))
+            max_seconds = hours * 3600
+        except:
+            max_seconds = 86400  # Default 24 hours
+    else:
+        max_seconds = 86400
+    
+    if timestamp_cols:
+        ts_col = timestamp_cols[0]
+        sql_parts.extend([
+            "-- ============================================================================",
+            "-- PART 5: FRESHNESS SLA",
+            "-- ============================================================================",
+            f"-- Contract SLA: {max_age} (max {max_seconds} seconds)",
+            "",
+            f"ALTER TABLE {full_table_name}",
+            f"    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.FRESHNESS",
+            f"    ON ({ts_col})",
+            f"    EXPECTATION freshness_sla (VALUE <= {max_seconds});",
+            ""
+        ])
+    
+    # Part 6: ROW_COUNT threshold
+    monitoring = contract_info.get('data_quality', {}).get('monitoring', {})
+    row_threshold = 500  # Default
+    
+    # Try to extract from monitoring.metrics
+    metrics = monitoring.get('metrics', [])
+    for metric in metrics:
+        if isinstance(metric, dict) and metric.get('name') == 'row_count':
+            threshold_str = metric.get('threshold', '')
+            try:
+                row_threshold = int(''.join(filter(str.isdigit, threshold_str)))
+            except:
+                pass
+    
+    sql_parts.extend([
+        "-- ============================================================================",
+        "-- PART 6: ROW COUNT THRESHOLD",
+        "-- ============================================================================",
+        f"-- Minimum expected rows: {row_threshold}",
+        "",
+        f"ALTER TABLE {full_table_name}",
+        f"    ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.ROW_COUNT",
+        f"    ON ()",
+        f"    EXPECTATION min_row_count (VALUE >= {row_threshold});",
+        ""
+    ])
+    
+    # Part 7: Verification queries
+    sql_parts.extend([
+        "-- ============================================================================",
+        "-- PART 7: VERIFY DMF CONFIGURATION",
+        "-- ============================================================================",
+        "",
+        "-- View all DMFs applied",
+        "SELECT",
+        "    metric_name,",
+        "    ref_arguments AS columns,",
+        "    schedule,",
+        "    schedule_status",
+        "FROM TABLE(",
+        "    INFORMATION_SCHEMA.DATA_METRIC_FUNCTION_REFERENCES(",
+        f"        REF_ENTITY_NAME => '{full_table_name}',",
+        "        REF_ENTITY_DOMAIN => 'TABLE'",
+        "    )",
+        ")",
+        "ORDER BY metric_name;",
+        "",
+        "-- Run initial quality check",
+        "SELECT * FROM TABLE(SYSTEM$EVALUATE_DATA_QUALITY_EXPECTATIONS(",
+        f"    REF_ENTITY_NAME => '{full_table_name}'));",
+        "",
+        "-- ============================================================================",
+        "-- SETUP COMPLETE",
+        "-- ============================================================================",
+    ])
+    
+    return "\n".join(sql_parts)
+
+
 def call_cortex(session: Session, prompt: str, model: str = "claude-3-5-sonnet") -> str:
     """Call Cortex LLM to generate code"""
     try:
@@ -502,9 +698,10 @@ with st.sidebar:
     st.header("📤 Outputs Generated")
     st.markdown("""
     The generator produces:
-    - `model.sql` - dbt transformation
-    - `schema.yml` - documentation & tests
-    - `masking_policies.sql` - Snowflake policies
+    - `model.sql` - dbt transformation (🧠 AI)
+    - `schema.yml` - documentation & tests (📋 Template)
+    - `masking_policies.sql` - PII protection (📋 Template)
+    - `dmf_setup.sql` - Data quality rules (📋 Template)
     """)
     
     st.divider()
@@ -659,10 +856,14 @@ if contract_yaml:
                 # Generate masking policies
                 masking_sql = generate_masking_policies_sql(contract_info)
                 
+                # Generate DMF setup (template-based)
+                dmf_sql = generate_dmf_sql(contract_info)
+                
                 # Store in session state
                 st.session_state.generated_model = dbt_model_code
                 st.session_state.generated_schema = schema_yml
                 st.session_state.generated_masking = masking_sql
+                st.session_state.generated_dmf = dmf_sql
                 st.session_state.model_name = contract_info['target_table'].lower()
         
         # Display generated code
@@ -671,9 +872,10 @@ if contract_yaml:
             st.markdown("✅ **All outputs generated successfully!**")
             st.markdown('</div>', unsafe_allow_html=True)
             
-            tab1, tab2, tab3 = st.tabs(["📄 dbt Model SQL", "📋 schema.yml", "🔐 masking_policies.sql"])
+            tab1, tab2, tab3, tab4 = st.tabs(["📄 dbt Model SQL", "📋 schema.yml", "🔐 masking_policies.sql", "📊 dmf_setup.sql"])
             
             with tab1:
+                st.caption("🧠 AI-Generated via Cortex LLM")
                 st.code(st.session_state.generated_model, language='sql')
                 st.download_button(
                     "📥 Download Model SQL",
@@ -683,6 +885,7 @@ if contract_yaml:
                 )
             
             with tab2:
+                st.caption("📋 Template-based from contract metadata")
                 st.code(st.session_state.generated_schema, language='yaml')
                 st.download_button(
                     "📥 Download schema.yml",
@@ -692,11 +895,22 @@ if contract_yaml:
                 )
             
             with tab3:
+                st.caption("📋 Template-based from contract policies")
                 st.code(st.session_state.generated_masking, language='sql')
                 st.download_button(
                     "📥 Download masking_policies.sql",
                     st.session_state.generated_masking,
                     file_name="masking_policies.sql",
+                    mime="text/plain"
+                )
+            
+            with tab4:
+                st.caption("📋 Template-based from contract quality rules")
+                st.code(st.session_state.generated_dmf, language='sql')
+                st.download_button(
+                    "📥 Download dmf_setup.sql",
+                    st.session_state.generated_dmf,
+                    file_name="dmf_setup.sql",
                     mime="text/plain"
                 )
             
@@ -710,11 +924,18 @@ if contract_yaml:
 1. **Model SQL** → `models/data_products/{st.session_state.model_name}.sql`
 2. **Schema** → `models/data_products/schema.yml`
 3. **Masking** → Run `masking_policies.sql` in Snowflake
+4. **DMF Setup** → Run `dmf_setup.sql` in Snowflake (for quality monitoring)
 
 **Run dbt:**
 ```bash
 dbt run --select {st.session_state.model_name}
 dbt test --select {st.session_state.model_name}
+```
+
+**Verify quality:**
+```sql
+SELECT * FROM TABLE(SYSTEM$EVALUATE_DATA_QUALITY_EXPECTATIONS(
+    REF_ENTITY_NAME => '{contract_info['target_database']}.{contract_info['target_schema']}.{contract_info['target_table']}'));
 ```
             """)
             st.markdown('</div>', unsafe_allow_html=True)
