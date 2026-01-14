@@ -11,7 +11,7 @@ Build a production-ready **Retail Customer Churn Risk** data product on Snowflak
 This repository follows a 5-stage lifecycle for delivering data products:
 
 <p align="center">
-  <img src="images/data-product-lifecycle.png" alt="Data Product Lifecycle" width="700"/>
+  <img src="docs/data-product-lifecycle.png" alt="Data Product Lifecycle" width="700"/>
 </p>
 
 | Stage | What Happens | Repo Folder |
@@ -101,8 +101,10 @@ Run `06_cleanup/cleanup.sql` to remove all demo resources.
 ├── 04_operate/                     # Monitoring & Observability
 ├── 05_refine/                      # Evolution example (v2 contract)
 ├── 06_cleanup/                     # Cleanup script
-└── docs/
-    └── raci_template.md            # RACI matrix for team collaboration
+└── docs/                           # Documentation & diagrams
+    ├── data-product-lifecycle.png  # Lifecycle diagram
+    ├── data_contract_informs.*     # Contract-driven diagram
+    └── raci_template.md            # RACI matrix
 ```
 
 ---
