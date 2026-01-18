@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Generation Flow</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 24px;
+            padding: 50px 60px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+            max-width: 1000px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #0f172a;
+            font-size: 28px;
+            margin-bottom: 40px;
+            font-weight: 700;
+        }
+        
+        .flow {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        
+        /* Input Section */
+        .input-section {
+            display: flex;
+            justify-content: center;
+        }
+        .contract-box {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            border-radius: 16px;
+            padding: 25px 40px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 8px 30px rgba(15, 23, 42, 0.2);
+            position: relative;
+        }
+        .yaml-badge {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #f59e0b;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .contract-box h2 {
+            font-size: 16px;
+            margin-top: 8px;
+        }
+        .contract-box p {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        /* Arrow */
+        .arrow-down {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #64748b;
+        }
+        .arrow-line-v {
+            width: 3px;
+            height: 30px;
+            background: #cbd5e1;
+        }
+        .arrow-head {
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 12px solid #cbd5e1;
+        }
+        .arrow-label {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 5px;
+        }
+        
+        /* Parser Box */
+        .parser-section {
+            display: flex;
+            justify-content: center;
+        }
+        .parser-box {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            border-radius: 14px;
+            padding: 20px 50px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 6px 24px rgba(99, 102, 241, 0.25);
+        }
+        .parser-box h3 {
+            font-size: 15px;
+            margin-bottom: 5px;
+        }
+        .parser-box p {
+            font-size: 11px;
+            opacity: 0.85;
+        }
+        
+        /* Split Section */
+        .split-section {
+            display: flex;
+            justify-content: center;
+            gap: 0;
+        }
+        .branch {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+        .branch-line {
+            width: 3px;
+            height: 40px;
+            background: #cbd5e1;
+        }
+        .branch-arrow {
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 10px solid #cbd5e1;
+        }
+        
+        /* Generation Methods */
+        .methods-section {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+        }
+        .method-box {
+            border-radius: 14px;
+            padding: 20px 25px;
+            text-align: center;
+            color: white;
+            min-width: 200px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.1);
+        }
+        .method-ai {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        .method-template {
+            background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+        }
+        .method-box h4 {
+            font-size: 13px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .method-box p {
+            font-size: 11px;
+            opacity: 0.9;
+        }
+        .badge {
+            font-size: 9px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.2);
+        }
+        
+        /* Output Section */
+        .output-section {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 10px;
+        }
+        .output-box {
+            border-radius: 12px;
+            padding: 15px 20px;
+            text-align: center;
+            min-width: 180px;
+        }
+        .output-ai {
+            background: #d1fae5;
+            border: 2px solid #10b981;
+        }
+        .output-ai h5 { color: #059669; }
+        .output-template {
+            background: #f1f5f9;
+            border: 2px solid #64748b;
+        }
+        .output-template h5 { color: #475569; }
+        .output-box h5 {
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+        .output-box p {
+            font-size: 10px;
+            color: #64748b;
+        }
+        
+        /* Legend */
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .legend-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+        }
+        .legend-ai { background: #10b981; }
+        .legend-template { background: #64748b; }
+        
+        .footer {
+            text-align: center;
+            margin-top: 25px;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Code Generation Flow: AI vs Template</h1>
+        
+        <div class="flow">
+            <!-- Input -->
+            <div class="input-section">
+                <div class="contract-box">
+                    <span class="yaml-badge">YAML</span>
+                    <h2>DATA CONTRACT</h2>
+                    <p>Schema, derivations, rules, policies</p>
+                </div>
+            </div>
+            
+            <!-- Arrow -->
+            <div class="arrow-down">
+                <div class="arrow-line-v"></div>
+                <div class="arrow-head"></div>
+            </div>
+            
+            <!-- Parser -->
+            <div class="parser-section">
+                <div class="parser-box">
+                    <h3>Contract Parser</h3>
+                    <p>extract_contract_info()</p>
+                </div>
+            </div>
+            
+            <!-- Split Arrows -->
+            <div class="split-section">
+                <div class="branch">
+                    <div class="branch-line"></div>
+                    <div class="branch-arrow"></div>
+                </div>
+                <div class="branch">
+                    <div class="branch-line"></div>
+                    <div class="branch-arrow"></div>
+                </div>
+                <div class="branch">
+                    <div class="branch-line"></div>
+                    <div class="branch-arrow"></div>
+                </div>
+            </div>
+            
+            <!-- Generation Methods -->
+            <div class="methods-section">
+                <div class="method-box method-ai">
+                    <h4>🧠 Cortex AI <span class="badge">LLM</span></h4>
+                    <p>Interprets English derivations<br>Generates transformation SQL</p>
+                </div>
+                <div class="method-box method-template">
+                    <h4>📋 Template Parser</h4>
+                    <p>Extracts column metadata<br>Builds structured YAML</p>
+                </div>
+                <div class="method-box method-template">
+                    <h4>📋 Template Parser</h4>
+                    <p>Reads policy definitions<br>Generates DDL statements</p>
+                </div>
+            </div>
+            
+            <!-- Output Arrows -->
+            <div class="split-section">
+                <div class="branch">
+                    <div class="branch-line"></div>
+                    <div class="branch-arrow"></div>
+                </div>
+                <div class="branch">
+                    <div class="branch-line"></div>
+                    <div class="branch-arrow"></div>
+                </div>
+                <div class="branch">
+                    <div class="branch-line"></div>
+                    <div class="branch-arrow"></div>
+                </div>
+            </div>
+            
+            <!-- Outputs -->
+            <div class="output-section">
+                <div class="output-box output-ai">
+                    <h5>model.sql</h5>
+                    <p>dbt transformation<br>with business logic</p>
+                </div>
+                <div class="output-box output-template">
+                    <h5>schema.yml</h5>
+                    <p>Documentation<br>& tests</p>
+                </div>
+                <div class="output-box output-template">
+                    <h5>masking_policies.sql</h5>
+                    <p>Snowflake DDL<br>for PII protection</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-dot legend-ai"></div>
+                <span><strong>AI-Generated</strong> — Complex logic requiring interpretation</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot legend-template"></div>
+                <span><strong>Template-Based</strong> — Deterministic, structured output</span>
+            </div>
+        </div>
+        
+        <p class="footer">AI is used only where English-to-SQL interpretation is needed (derivations → transformations)</p>
+    </div>
+</body>
+</html>
