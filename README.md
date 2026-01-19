@@ -103,7 +103,8 @@ Run `06_cleanup/cleanup.sql` to remove all demo resources.
 │   ├── 03_semantic_view_marketplace.sql
 │   └── generated_output_samples/   # Example outputs
 ├── 04_operate/
-│   └── monitoring_observability.sql  # Monitoring dashboards & alerts
+│   ├── monitoring_observability.sql  # Monitoring dashboards & alerts
+│   └── raci_template.md            # RACI matrix template
 ├── 05_refine/
 │   ├── churn_risk_data_contract_v2.yaml  # Evolved contract
 │   └── evolution_example.sql       # Schema evolution example
@@ -112,9 +113,7 @@ Run `06_cleanup/cleanup.sql` to remove all demo resources.
 └── docs/
     ├── data-product-lifecycle.png  # Lifecycle diagram
     ├── code_generation_flow.png    # AI vs template generation
-    ├── data_contract_informs.png   # Contract-driven diagram
-    ├── data_contract_key_elements.yaml  # Simplified contract example
-    └── raci_template.md            # RACI matrix template
+    └── data_contract_informs.png   # Contract-driven diagram
 ```
 
 ---
