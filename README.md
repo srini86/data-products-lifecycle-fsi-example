@@ -90,21 +90,31 @@ Run `06_cleanup/cleanup.sql` to remove all demo resources.
 ## Folder Structure
 
 ```
-├── 00_setup/                       # One-click setup script
-├── 01_discover/                    # Data Product Canvas (HTML)
-├── 02_design/                      # Data Contract (YAML)
+├── 00_setup/
+│   └── setup.sql                   # One-click setup script
+├── 01_discover/
+│   ├── data_product_canvas.png     # Visual canvas
+│   └── data_product_canvas.yaml    # Machine-readable canvas
+├── 02_design/
+│   └── churn_risk_data_contract.yaml  # Data contract specification
 ├── 03_deliver/
 │   ├── 01_dbt_generator_app.py     # Streamlit app (Cortex AI)
 │   ├── 02_data_quality_dmf.sql     # Data Metric Functions setup
 │   ├── 03_semantic_view_marketplace.sql
 │   └── generated_output_samples/   # Example outputs
-├── 04_operate/                     # Monitoring & Observability
-├── 05_refine/                      # Evolution example (v2 contract)
-├── 06_cleanup/                     # Cleanup script
-└── docs/                           # Documentation & diagrams
+├── 04_operate/
+│   └── monitoring_observability.sql  # Monitoring dashboards & alerts
+├── 05_refine/
+│   ├── churn_risk_data_contract_v2.yaml  # Evolved contract
+│   └── evolution_example.sql       # Schema evolution example
+├── 06_cleanup/
+│   └── cleanup.sql                 # Remove all demo resources
+└── docs/
     ├── data-product-lifecycle.png  # Lifecycle diagram
-    ├── data_contract_informs.*     # Contract-driven diagram
-    └── raci_template.md            # RACI matrix
+    ├── code_generation_flow.png    # AI vs template generation
+    ├── data_contract_informs.png   # Contract-driven diagram
+    ├── data_contract_key_elements.yaml  # Simplified contract example
+    └── raci_template.md            # RACI matrix template
 ```
 
 ---
