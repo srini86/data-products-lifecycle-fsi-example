@@ -1,7 +1,5 @@
 # Data Products for Financial Services
 
-> ⚠️ **Disclaimer:** This is a personal project for educational and demonstration purposes.
-
 Build a production-ready **Retail Customer Churn Risk** data product on Snowflake — complete with AI-generated dbt models, masking policies, semantic views, and data quality monitoring.
 
 ---
@@ -129,3 +127,5 @@ Run `06_cleanup/cleanup.sql` to remove all demo resources.
 | Streamlit App | `dbt_code_generator` | AI-powered code generator |
 | Semantic View | `retail_customer_churn_risk_sv` | Enables Cortex Analyst queries |
 | DMFs | NULL_COUNT, DUPLICATE_COUNT, FRESHNESS, ROW_COUNT | Native data quality monitoring |
+
+> **Disclaimer:** This is a personal project for educational and demonstration purposes.
