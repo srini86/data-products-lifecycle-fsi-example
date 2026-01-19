@@ -2,6 +2,8 @@
 
 > ⚠️ **Disclaimer:** This is a personal project for educational and demonstration purposes.
 
+📝 **Blog Post:** [Building Regulatory-Grade Data Products on Snowflake for FSI](https://datadonutz.medium.com/building-regulatory-grade-data-products-on-snowflake-for-fsi-938895e25e35)
+
 Build a production-ready **Retail Customer Churn Risk** data product on Snowflake — complete with AI-generated dbt models, masking policies, semantic views, and data quality monitoring.
 
 ---
@@ -11,7 +13,7 @@ Build a production-ready **Retail Customer Churn Risk** data product on Snowflak
 This repository follows a 5-stage lifecycle for delivering data products:
 
 <p align="center">
-  <img src="00_setup/data-product-lifecycle.png" alt="Data Product Lifecycle" width="700"/>
+  <img src="docs/data-product-lifecycle.png" alt="Data Product Lifecycle" width="700"/>
 </p>
 
 | Stage | What Happens | Repo Folder |
@@ -91,29 +93,30 @@ Run `06_cleanup/cleanup.sql` to remove all demo resources.
 
 ```
 ├── 00_setup/
-│   ├── setup.sql                   # One-click setup script
-│   └── data-product-lifecycle.png  # Lifecycle diagram
+│   └── setup.sql                   # One-click setup script
 ├── 01_discover/
 │   ├── data_product_canvas.png     # Visual canvas
 │   └── data_product_canvas.yaml    # Machine-readable canvas
 ├── 02_design/
-│   ├── churn_risk_data_contract.yaml  # Data contract specification
-│   └── data_contract_informs.png   # Contract-driven diagram
+│   └── churn_risk_data_contract.yaml  # Data contract specification
 ├── 03_deliver/
 │   ├── 01_dbt_generator_app.py     # Streamlit app (Cortex AI)
 │   ├── 02_data_quality_dmf.sql     # Data Metric Functions setup
 │   ├── 03_semantic_view_marketplace.sql
-│   ├── automted-data-pipeline.png  # Pipeline diagram
-│   ├── code_generation_flow.png    # AI vs template generation
 │   └── generated_output_samples/   # Example outputs
 ├── 04_operate/
-│   ├── monitoring_observability.sql  # Monitoring dashboards & alerts
-│   └── raci_template.md            # RACI matrix template
+│   └── monitoring_observability.sql  # Monitoring dashboards & alerts
 ├── 05_refine/
 │   ├── churn_risk_data_contract_v2.yaml  # Evolved contract
 │   └── evolution_example.sql       # Schema evolution example
-└── 06_cleanup/
-    └── cleanup.sql                 # Remove all demo resources
+├── 06_cleanup/
+│   └── cleanup.sql                 # Remove all demo resources
+└── docs/
+    ├── data-product-lifecycle.png  # Lifecycle diagram
+    ├── code_generation_flow.png    # AI vs template generation
+    ├── data_contract_informs.png   # Contract-driven diagram
+    ├── data_contract_key_elements.yaml  # Simplified contract example
+    └── raci_template.md            # RACI matrix template
 ```
 
 ---
