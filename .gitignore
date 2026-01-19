@@ -57,5 +57,8 @@ Thumbs.db
 # Uncomment if you want to ignore generated outputs:
 # generated_output/
 
+# HTML files (keep PNG versions for git)
+*.html
+
+# Previously ignored
 01_discover/data_product_canvas.yaml
-04_operate/cleanup_monitoring.sql
