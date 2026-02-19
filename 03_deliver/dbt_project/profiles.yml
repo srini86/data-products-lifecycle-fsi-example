@@ -1,0 +1,11 @@
+retail_churn_risk:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: SFSEAPAC-SRINIVASANKUPPUSAMY_AWS1
+      user: skuppusamy
+      warehouse: COMPUTE_WH
+      database: RETAIL_BANKING_DB
+      schema: DATA_PRODUCTS
+      role: ACCOUNTADMIN

@@ -1,0 +1,214 @@
+version: 2
+
+models:
+  - name: retail_customer_churn_risk
+    description: |
+      A governed, daily-refreshed data product providing unified churn risk 
+      scores for retail banking customers. Combines behavioral signals, 
+      transactional patterns, and engagement data to produce explainable 
+      risk scores that power retention campaigns and branch interventions.
+    
+    config:
+      tags: ['churn_risk', 'retail_banking', 'data_product']
+    
+    columns:
+      # Customer Identifiers
+      - name: customer_id
+        description: Unique identifier for the retail customer
+        tests:
+          - not_null
+          - unique
+
+      - name: customer_name
+        description: Full name of the customer
+        tests:
+          - not_null
+
+      - name: customer_segment
+        description: Customer segment classification
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['MASS_MARKET', 'MASS_AFFLUENT', 'AFFLUENT', 'HIGH_NET_WORTH']
+
+      - name: region
+        description: Geographic region of the customer
+        tests:
+          - not_null
+
+      # Relationship Attributes
+      - name: relationship_tenure_months
+        description: Number of months since customer onboarding
+        tests:
+          - not_null
+
+      - name: total_products_held
+        description: Count of active products held by customer
+        tests:
+          - not_null
+
+      - name: primary_account_balance
+        description: Balance of primary current account in GBP
+        tests:
+          - not_null
+
+      - name: total_relationship_balance
+        description: Sum of all account balances in GBP
+        tests:
+          - not_null
+
+      # Behavioral Signals
+      - name: avg_monthly_transactions_3m
+        description: Average monthly transaction count over last 3 months
+        tests:
+          - not_null
+
+      - name: transaction_trend
+        description: Transaction volume trend direction
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['INCREASING', 'STABLE', 'DECLINING', 'SEVERELY_DECLINING']
+
+      - name: balance_trend
+        description: Account balance trend direction
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['INCREASING', 'STABLE', 'DECLINING', 'SEVERELY_DECLINING']
+
+      - name: days_since_last_transaction
+        description: Days since the last account transaction
+        tests:
+          - not_null
+
+      # Digital Engagement
+      - name: mobile_app_active
+        description: Whether customer has used mobile app in last 30 days
+        tests:
+          - not_null
+
+      - name: login_count_30d
+        description: Number of digital banking logins in last 30 days
+        tests:
+          - not_null
+
+      - name: digital_engagement_score
+        description: Composite digital engagement score (0-100)
+        tests:
+          - not_null
+
+      # Complaints
+      - name: open_complaints_count
+        description: Number of currently open complaints
+        tests:
+          - not_null
+
+      - name: complaints_last_12m
+        description: Total complaints filed in last 12 months
+        tests:
+          - not_null
+
+      - name: has_unresolved_complaint
+        description: Flag indicating unresolved complaint exists
+        tests:
+          - not_null
+
+      # Churn Risk Outputs
+      - name: churn_risk_score
+        description: Calculated churn risk score (0-100, higher = more risk)
+        tests:
+          - not_null
+
+      - name: risk_tier
+        description: Risk categorization based on score thresholds
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+
+      # Risk Driver Flags
+      - name: declining_balance_flag
+        description: Significant balance decline detected
+        tests:
+          - not_null
+
+      - name: reduced_activity_flag
+        description: Reduced transaction activity detected
+        tests:
+          - not_null
+
+      - name: low_engagement_flag
+        description: Low digital engagement detected
+        tests:
+          - not_null
+
+      - name: complaint_flag
+        description: Recent or unresolved complaint exists
+        tests:
+          - not_null
+
+      - name: dormancy_flag
+        description: Account showing dormancy signals
+        tests:
+          - not_null
+
+      - name: primary_risk_driver
+        description: The most significant factor contributing to churn risk
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['BALANCE_DECLINE', 'ACTIVITY_REDUCTION', 'LOW_ENGAGEMENT', 
+                       'COMPLAINTS', 'DORMANCY', 'MULTI_FACTOR', 'NONE']
+
+      - name: risk_drivers_json
+        description: JSON object of all contributing risk factors with details
+        tests:
+          - not_null
+
+      # Recommended Actions
+      - name: recommended_intervention
+        description: Suggested retention intervention based on risk profile
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['NO_ACTION', 'DIGITAL_ENGAGEMENT', 'RELATIONSHIP_CALL', 
+                       'BRANCH_MEETING', 'RETENTION_OFFER', 'URGENT_ESCALATION']
+
+      - name: intervention_priority
+        description: Priority ranking for intervention (1=highest)
+        tests:
+          - not_null
+
+      # Metadata
+      - name: score_calculated_at
+        description: Timestamp when churn score was calculated
+        tests:
+          - not_null
+
+      - name: data_as_of_date
+        description: Business date of the source data
+        tests:
+          - not_null
+
+      - name: model_version
+        description: Version of the churn risk model used
+        tests:
+          - not_null
+
+
+sources:
+  - name: raw
+    database: RETAIL_BANKING_DB
+    schema: RAW
+    tables:
+      - name: customers
+        description: Core customer demographics and profile
+      - name: accounts
+        description: Customer accounts and products
+      - name: transactions
+        description: Account transaction history
+      - name: digital_engagement
+        description: Mobile app and online banking activity
+      - name: complaints
+        description: Customer complaints and service issues
