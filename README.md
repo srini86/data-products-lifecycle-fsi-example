@@ -115,7 +115,7 @@ Choose **3a** or **3b**:
   5. `"Generate singular dbt tests from the contract business rules"`
   6. `"Deploy the dbt project using snow dbt deploy and execute"`
   7. `"Run validation tests and capture feedback"`
-- Full guide: [`PROMPT_INSTRUCTION_GUIDE.md`](PROMPT_INSTRUCTION_GUIDE.md) — covers skills architecture, guardrails, and error playbook
+- Full guide: [`.cortex/guides/PROMPT_INSTRUCTION_GUIDE.md`](.cortex/guides/PROMPT_INSTRUCTION_GUIDE.md) — covers skills architecture, guardrails, and error playbook
 
 ### Step 4: Operate & Monitor
 
@@ -138,7 +138,11 @@ Choose **3a** or **3b**:
 ## Folder Structure
 
 ```
-.cortex/skills/capture-feedback/       # CoCo feedback skill
+.cortex/
+  ├── skills/capture-feedback/         # CoCo feedback skill
+  └── guides/                          # CoCo guides & prompts
+        ├── PROMPT_INSTRUCTION_GUIDE.md
+        └── TODO.md
 00_setup/                              # Setup script + lifecycle diagram
 01_discover/                           # Data product canvas
 02_design/                             # Data contracts (v1 + v2)
@@ -156,8 +160,6 @@ Choose **3a** or **3b**:
 04_operate/                            # Monitoring & RACI template
 05_refine/                             # Contract v2 + evolution examples
 06_cleanup/                            # Cleanup script
-PROMPT_INSTRUCTION_GUIDE.md            # CoCo lifecycle playbook (3b)
-TODO.md                                # Progress tracker (3b)
 ```
 
 ---
