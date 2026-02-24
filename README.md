@@ -112,7 +112,7 @@ Choose **3a** or **3b**:
   2. `"Generate masking policies and DMF setup SQL based on the governance rules in the contract"`
   3. `"Deploy the dbt project to Snowflake using snow dbt deploy and run it"`
   4. `"Validate the deployment — run tests, check row counts, verify masking is applied"`
-- Full guide: [`.cortex/guides/PROMPT_INSTRUCTION_GUIDE.md`](.cortex/guides/PROMPT_INSTRUCTION_GUIDE.md) — covers skills architecture, guardrails, and error playbook
+- Full playbook: [`.cortex/guides/DATA_PRODUCT_PLAYBOOK.md`](.cortex/guides/DATA_PRODUCT_PLAYBOOK.md) — covers skills architecture, guardrails, and error playbook
 
 ### Step 4: Operate & Monitor
 
@@ -138,7 +138,7 @@ Choose **3a** or **3b**:
 .cortex/
   ├── skills/capture-feedback/         # CoCo feedback skill
   └── guides/                          # CoCo guides & prompts
-        ├── PROMPT_INSTRUCTION_GUIDE.md
+        ├── DATA_PRODUCT_PLAYBOOK.md
         └── TODO.md
 00_setup/                              # Setup script + lifecycle diagram
 01_discover/                           # Data product canvas

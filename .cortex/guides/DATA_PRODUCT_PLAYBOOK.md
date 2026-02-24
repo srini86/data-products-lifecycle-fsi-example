@@ -1,6 +1,6 @@
-# Prompt Instruction Guide: Contract-Driven Data Product Lifecycle
+# Data Product Playbook: Contract-Driven Lifecycle
 
-> **Purpose**: A step-by-step guide for using Cortex Code to build a governed data product on Snowflake using dbt — from discovery through deployment and operations.
+> **Purpose**: A step-by-step playbook for building a governed data product on Snowflake using Cortex Code and dbt — from discovery through deployment and operations.
 >
 > **Guiding Principles**:
 > 1. **Verify everything with the user** at every stage before proceeding
