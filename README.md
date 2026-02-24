@@ -100,21 +100,18 @@ Choose **3a** or **3b**:
   - `masking_policies.sql`
 - Create a dbt Project in Snowsight → add model + schema → Compile → Run
 - Run `masking_policies.sql` in a worksheet
-- Run `03_deliver/02_data_quality_dmf.sql` for DMF setup
-- Run `03_deliver/03_semantic_view_marketplace.sql` for semantic view
+- Run `03_deliver/generated_output_samples/02_data_quality_dmf.sql` for DMF setup
+- Run `03_deliver/generated_output_samples/03_semantic_view_marketplace.sql` for semantic view
 - Sample outputs: `03_deliver/generated_output_samples/`
 
 #### Step 3b: Cortex Code
 
 - Start Cortex Code in the repo directory — skills auto-load from `.cortex/skills/`
 - Use these prompts to walk through the lifecycle:
-  1. `"Read the data contract at 02_design/churn_risk_data_contract.yaml and generate a dbt transformation model"`
-  2. `"Generate schema.yml with column tests from the contract"`
-  3. `"Generate masking policies from the contract masking rules"`
-  4. `"Generate DMF setup SQL from the contract quality rules"`
-  5. `"Generate singular dbt tests from the contract business rules"`
-  6. `"Deploy the dbt project using snow dbt deploy and execute"`
-  7. `"Run validation tests and capture feedback"`
+  1. `"Read the data contract at 02_design/churn_risk_data_contract.yaml and generate a complete dbt project — model SQL, schema.yml, and tests"`
+  2. `"Generate masking policies and DMF setup SQL based on the governance rules in the contract"`
+  3. `"Deploy the dbt project to Snowflake using snow dbt deploy and run it"`
+  4. `"Validate the deployment — run tests, check row counts, verify masking is applied"`
 - Full guide: [`.cortex/guides/PROMPT_INSTRUCTION_GUIDE.md`](.cortex/guides/PROMPT_INSTRUCTION_GUIDE.md) — covers skills architecture, guardrails, and error playbook
 
 ### Step 4: Operate & Monitor
@@ -145,18 +142,16 @@ Choose **3a** or **3b**:
         └── TODO.md
 00_setup/                              # Setup script + lifecycle diagram
 01_discover/                           # Data product canvas
-02_design/                             # Data contracts (v1 + v2)
+02_design/                             # Data contract + diagrams
 03_deliver/
-  ├── 01_dbt_generator_app.py          # Streamlit app (3a)
-  ├── 01_code_generator_service.py     # Code generator (3b)
-  ├── 02_data_quality_dmf.sql          # DMF setup (3a)
-  ├── 03_semantic_view_marketplace.sql # Semantic view (3a)
-  ├── deploy_model.sql                 # Deployment script (3b)
-  ├── dmf_setup.sql                    # DMF setup (3b)
-  ├── masking_policies.sql             # Masking policies (3b)
-  ├── validate_deployment.sql          # Validation tests (3b)
-  ├── dbt_project/                     # dbt project (models + tests)
-  └── generated_output_samples/        # Sample outputs for reference
+  ├── 01_code_generator_service.py     # Code generator service
+  ├── validate_deployment.sql          # Validation tests
+  └── generated_output_samples/        # CoCo-generated sample outputs
+        ├── dbt_project/               # Complete dbt project
+        ├── masking_policies.sql
+        ├── dmf_setup.sql
+        ├── 02_data_quality_dmf.sql
+        └── 03_semantic_view_marketplace.sql
 04_operate/                            # Monitoring & RACI template
 05_refine/                             # Contract v2 + evolution examples
 06_cleanup/                            # Cleanup script
