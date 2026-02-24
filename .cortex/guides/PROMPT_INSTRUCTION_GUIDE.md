@@ -1,6 +1,6 @@
 # Prompt Instruction Guide: Contract-Driven Data Product Lifecycle
 
-> **Purpose**: A reusable, step-by-step prompt guide for an AI assistant (e.g., Cortex Code) to build a governed data product on Snowflake using dbt — from discovery through deployment and operations.
+> **Purpose**: A step-by-step guide for using Cortex Code to build a governed data product on Snowflake using dbt — from discovery through deployment and operations.
 >
 > **Guiding Principles**:
 > 1. **Verify everything with the user** at every stage before proceeding
@@ -8,51 +8,41 @@
 > 3. **Mark with comments** after every intervention — both in TODO.md and in generated code
 >
 > **Reference Implementation**: Adaptable to any domain (FSI, Healthcare, Retail, etc.)
+>
+> **Standing Rules**: See [`prompt.md`](../../prompt.md) at the project root — Cortex Code reads it automatically at session start.
 
 ---
 
 ## Table of Contents
 
-**Part I — For Field Teams (Strategy & Adoption)**
+**Part I — Concepts**
 
-1. [Cortex Code Skills for Data Products](#1-cortex-code-skills-for-data-products)
-2. [The prompt.md — Guardrails & Rules for CoCo](#2-the-promptmd--guardrails--rules-for-coco)
-3. [Developer Experience — How CoCo Uplifts the SDLC](#3-developer-experience--how-coco-uplifts-the-sdlc)
+1. [Skills Architecture](#1-skills-architecture)
+2. [AI vs Template](#2-ai-vs-template)
 
 **Part II — Lifecycle Execution (Step-by-Step)**
 
-4. [Operating Protocol](#4-operating-protocol)
-5. [Phase 0: Setup & Prerequisites](#5-phase-0-setup--prerequisites)
-6. [Phase 1: Discover](#6-phase-1-discover)
-7. [Phase 2: Design](#7-phase-2-design)
-8. [Phase 3: Deliver](#8-phase-3-deliver)
-9. [Phase 4: Deploy](#9-phase-4-deploy)
-10. [Phase 5: Validate](#10-phase-5-validate)
-11. [Phase 6: Operate](#11-phase-6-operate)
-12. [Phase 7: Cleanup](#12-phase-7-cleanup)
-13. [Error Playbook](#13-error-playbook)
-14. [Checklist Summary](#14-checklist-summary)
+3. [Operating Protocol](#3-operating-protocol)
+4. [Phase 0: Setup & Prerequisites](#4-phase-0-setup--prerequisites)
+5. [Phase 1: Discover](#5-phase-1-discover)
+6. [Phase 2: Design](#6-phase-2-design)
+7. [Phase 3: Deliver](#7-phase-3-deliver)
+8. [Phase 4: Deploy](#8-phase-4-deploy)
+9. [Phase 5: Validate](#9-phase-5-validate)
+10. [Phase 6: Operate](#10-phase-6-operate)
+11. [Phase 7: Cleanup](#11-phase-7-cleanup)
+12. [Error Playbook](#12-error-playbook)
+13. [Checklist Summary](#13-checklist-summary)
 
 ---
 
-# Part I — For Field Teams (Strategy & Adoption)
+# Part I — Concepts
 
 ---
 
-## 1. Cortex Code Skills for Data Products
+## 1. Skills Architecture
 
-### The Idea
-
-A **skill** in Cortex Code is a reusable instruction set that CoCo can invoke when a specific task is triggered. Think of skills as specialized "modes" — each one knows how to handle one phase of the data product lifecycle.
-
-Instead of one giant prompt, you decompose the lifecycle into **discrete skills** that map 1:1 to lifecycle phases. This gives you:
-
-- **Modularity** — Update one skill without breaking others
-- **Reusability** — Same skills work across different data products (churn risk, fraud detection, credit scoring)
-- **Consistency** — Every team member gets the same guardrails and patterns
-- **Auditability** — Each skill's output is traceable back to the contract
-
-### Recommended Skills Architecture
+Decompose the lifecycle into discrete skills that map 1:1 to lifecycle phases. Each skill has a trigger, input, output, and guardrails.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -99,23 +89,7 @@ Instead of one giant prompt, you decompose the lifecycle into **discrete skills*
 └──────────────────────────────────────────────────────────┘
 ```
 
-### AI vs Template — When to Use Which
-
-| Skill | Type | Why |
-|-------|------|-----|
-| **contract-generator** | AI | Interprets business intent from canvas, maps to ODCS structure |
-| **model-sql generator** | AI | Writes transformation logic (CTEs, joins, scoring algorithms) |
-| **schema-yml generator** | Template | Deterministic: column name → test type mapping from contract |
-| **masking-policy generator** | Template | Deterministic: PII column + authorized roles → policy DDL |
-| **dmf-setup generator** | Template | Deterministic: quality rule type → DMF function mapping |
-| **test-generator** | Template | Deterministic: business rule condition → singular test SQL |
-| **deployer** | Orchestration | Runs `snow dbt deploy` → `execute run` → `execute test` in sequence |
-
-**Key insight for field teams**: Only **transformation logic** needs AI. Everything else is a deterministic parser. This means 5 of 7 skills produce identical output for identical input — no hallucination risk, fully auditable.
-
-### How to Build a Skill
-
-Skills in Cortex Code are markdown files placed in a known location. Each skill has:
+### Skill file format
 
 ```markdown
 # Skill: {skill-name}
@@ -137,274 +111,23 @@ When the user asks to: "{trigger phrase}"
 - {rules the skill must follow}
 ```
 
-**Example — masking-policy-generator skill**:
-
-```markdown
-# Skill: masking-policy-generator
-
-## Trigger
-When the user asks to generate masking policies from a data contract.
-
-## Inputs
-- Path to ODCS v2.2 contract YAML
-
-## Instructions
-1. Parse the contract's `schema.properties` section
-2. Find all columns where `pii: true`
-3. For each PII column, read its `masking_policy` block
-4. Generate a CREATE OR REPLACE MASKING POLICY statement:
-   - Use IS_ROLE_IN_SESSION() for each authorized role (NOT CURRENT_ROLE())
-   - Default return: '***MASKED***'
-5. Generate ALTER TABLE statements to apply the policy
-6. Present output to user for review before saving
-
-## Output
-- masking_policies.sql
-
-## Guardrails
-- NEVER use CURRENT_ROLE() — always IS_ROLE_IN_SESSION()
-- ALWAYS verify authorized roles list with user
-- ALWAYS add [INTERVENTION] comment with timestamp
-```
-
-### Field Team Action Items
-
-1. **Inventory your lifecycle** — Map your team's data product delivery process to phases
-2. **Identify skill boundaries** — Each phase where input/output is clear = one skill
-3. **Classify AI vs Template** — Only use AI skills where interpretation is needed
-4. **Build incrementally** — Start with contract-generator + model-sql generator, add others over time
-5. **Share across teams** — Skills are portable; one team's masking-policy-generator works for all
+Place skill files in `.cortex/skills/{skill-name}/SKILL.md` for project-level auto-loading.
 
 ---
 
-## 2. The prompt.md — Guardrails & Rules for CoCo
+## 2. AI vs Template
 
-### The Idea
+Only **transformation logic** needs AI. Everything else is a deterministic parser — identical output for identical input, no hallucination risk.
 
-A `prompt.md` file at the root of your project acts as **standing instructions** for Cortex Code. Every time CoCo starts a session in that project directory, it reads `prompt.md` and follows those rules for the entire session.
-
-This is your **governance layer** — it ensures CoCo behaves consistently across team members, sessions, and data products.
-
-### What Goes in prompt.md
-
-| Section | Purpose | Example |
-|---------|---------|---------|
-| **Identity** | Who CoCo is in this context | "You are a data product engineer building governed data products on Snowflake" |
-| **Operating Rules** | Non-negotiable behaviors | "Verify with user before every phase transition" |
-| **Naming Conventions** | Standard names for objects | "Tables: UPPER_SNAKE_CASE, Policies: {TABLE}_{COLUMN}_MASK" |
-| **Quality Gates** | Minimum standards | "All required columns must have not_null tests" |
-| **Forbidden Patterns** | Anti-patterns to avoid | "Never use CURRENT_ROLE() in masking policies" |
-| **File Structure** | Expected project layout | "Models in 03_deliver/dbt_project/models/" |
-| **Technology Choices** | Stack decisions | "Use native dbt tests only — no external packages" |
-| **Progress Tracking** | How to track work | "Maintain TODO.md, mark [x] after every intervention" |
-
-### Reference prompt.md
-
-```markdown
-# prompt.md — Data Product Lifecycle Rules
-
-## Identity
-You are a data product engineer using Cortex Code to build governed, 
-contract-driven data products on Snowflake. You follow the ODCS v2.2 
-standard and deploy via Snowflake-native dbt.
-
-## Operating Rules
-1. VERIFY with the user before:
-   - Proceeding to a new lifecycle phase
-   - Creating or dropping any Snowflake object
-   - Finalizing any generated artifact
-2. MAINTAIN TODO.md at the project root:
-   - Update after every intervention
-   - Use checkboxes: `- [ ]` (pending) / `- [x]` (done)
-   - Record timestamps, row counts, and test results
-3. COMMENT every change:
-   - SQL: `-- [INTERVENTION] YYYY-MM-DD: description`
-   - YAML: `# [INTERVENTION] YYYY-MM-DD: description`
-4. NEVER proceed if a quality gate fails without user acknowledgment
-
-## Data Contract Standard
-- Use ODCS v2.2 specification
-- Contract YAML is the SINGLE SOURCE OF TRUTH for all code generation
-- Every output column must trace back to a contract property
-- Every test must trace back to a contract quality_rule or business_rule
-
-## Snowflake Conventions
-- Database naming: {DOMAIN}_{FUNCTION}_DB (e.g., SALES_ANALYTICS_DB)
-- Schema naming: RAW (sources), DATA_PRODUCTS (outputs), GOVERNANCE, MONITORING
-- Table naming: UPPER_SNAKE_CASE matching the data product name
-- Warehouse: {DOMAIN}_WH, size XSMALL, auto-suspend 300s
-- Role: Use actual role from SELECT CURRENT_ROLE() — never assume
-
-## dbt Rules (Snowflake-native)
-- NO external packages (no packages.yml, no dbt_utils)
-- NO env_var() or Jinja variables in profiles.yml — use literal values
-- NO schema overrides in model config or dbt_project.yml
-- NO password field in profiles.yml — Snowflake handles authentication
-- Profiles.yml account format: ORG-ACCOUNT_NAME (get from SQL query)
-- Use CTE-based transformation pattern (source → aggregate → flag → score → final)
-- All tests must be native: not_null, unique, accepted_values, or singular SQL
-
-## Masking Policies
-- Use IS_ROLE_IN_SESSION() — NEVER CURRENT_ROLE()
-- Policy naming: {COLUMN}_MASK (e.g., EMAIL_ADDRESS_MASK)
-- Default masked value: '***MASKED***'
-- Always verify authorized roles with user before applying
-
-## Data Metric Functions (DMFs)
-- Schedule: TRIGGER_ON_CHANGES
-- Required DMFs: NULL_COUNT (on required columns), DUPLICATE_COUNT (on PK), 
-  ROW_COUNT, FRESHNESS (on timestamp columns)
-- Optional: UNIQUE_COUNT on business key columns
-
-## Quality Gates (must pass before marking phase complete)
-- All required columns: 0 NULLs
-- Primary key: 0 duplicates
-- Score/range columns: all within [min, max] from contract
-- Enum columns: all values in allowed set from contract
-- Business rules: 0 violations
-- Masking: verified via POLICY_REFERENCES
-- DMFs: verified via DATA_METRIC_FUNCTION_REFERENCES
-
-## Forbidden Patterns
-- CURRENT_ROLE() in masking policies
-- env_var() in Snowflake-native profiles.yml
-- +schema: in dbt_project.yml models config
-- schema= in dbt model config block
-- External package dependencies (dbt_utils, dbt_expectations, etc.)
-- Hardcoded passwords in any file
-- Dropping objects without user confirmation
-```
-
-### How Field Teams Should Use This
-
-1. **Place `prompt.md` in the project root** — CoCo reads it automatically
-2. **Customize per domain** — FSI teams might add compliance rules; Healthcare teams add HIPAA rules
-3. **Version control it** — Treat it like code; PR reviews for changes
-4. **Share a base template** — Start with the reference above, customize per team
-5. **Evolve it** — After every engagement, capture new pitfalls in the Forbidden Patterns section
-
----
-
-## 3. Developer Experience — How CoCo Uplifts the SDLC
-
-### The Big Picture
-
-Cortex Code doesn't replace the developer — it **removes the grunt work** so the developer focuses on **business logic and governance decisions**. Here's how it maps:
-
-```
-Traditional SDLC              With Cortex Code
-─────────────────              ────────────────
-Manual requirements gathering  → CoCo reads canvas, extracts structured requirements
-Write contract from scratch    → CoCo generates ODCS v2.2 YAML, user validates
-Hand-code dbt models           → CoCo generates CTE pipeline from contract derivations
-Hand-code schema.yml           → CoCo parses contract → deterministic schema.yml
-Hand-write masking policies    → CoCo parses contract PII columns → policy DDL
-Hand-configure DMFs            → CoCo maps contract quality rules → DMF setup
-Write tests manually           → CoCo maps business rules → singular test SQL
-Deploy via manual SQL           → CoCo orchestrates snow dbt deploy/execute/test
-Validate with ad-hoc queries   → CoCo runs validation suite, presents results
-```
-
-### What Changes for the Developer
-
-| Activity | Before CoCo | With CoCo | Developer's Role |
-|----------|-------------|-----------|-----------------|
-| **Discovery** | Read docs, interview stakeholders, take notes | CoCo reads canvas image, extracts 10 sections, presents interpretation | Validate interpretation, add context CoCo missed |
-| **Contract** | Write 500+ line YAML from scratch | CoCo generates YAML, user reviews | Review derivation logic, approve quality thresholds |
-| **Model SQL** | Write 300+ lines of CTE SQL | CoCo generates from contract derivations | Review business logic, edge cases, performance |
-| **Schema** | Manually map columns to tests | CoCo deterministically parses contract | Spot-check, add any custom tests |
-| **Masking** | Look up syntax, write DDL | CoCo generates from contract PII flags | Confirm authorized roles |
-| **DMFs** | Configure one by one via ALTER TABLE | CoCo generates full setup script | Review which columns get which DMFs |
-| **Tests** | Write SQL for each business rule | CoCo converts contract conditions to test SQL | Review edge cases |
-| **Deploy** | Run commands, debug errors | CoCo orchestrates, handles known errors | Monitor, approve phase transitions |
-| **Validate** | Write ad-hoc queries | CoCo runs validation suite | Review results, accept/reject |
-
-### The Developer Experience Shift
-
-```
-BEFORE: Developer is a WRITER
-  → Spends 80% writing boilerplate, 20% on business logic
-  
-AFTER: Developer is a REVIEWER
-  → Spends 20% reviewing generated code, 80% on business decisions
-```
-
-### Key SDLC Alignment Points
-
-**1. Contract as Single Source of Truth**
-
-The ODCS contract replaces scattered requirements docs, Jira tickets, and Slack conversations. Everything traces back to one YAML file:
-
-```
-Contract → Model SQL (derivation logic)
-Contract → Schema.yml (column definitions, tests)
-Contract → Masking Policies (PII flags, authorized roles)
-Contract → DMF Setup (quality rules)
-Contract → Tests (business rules)
-Contract → Validation Queries (quality gates)
-```
-
-Change the contract → regenerate artifacts → redeploy. One source, consistent outputs.
-
-**2. Verification-Driven Development**
-
-CoCo is configured (via prompt.md) to pause and verify at every phase boundary. This means:
-- No "I generated 1000 lines and hope it's right"
-- Instead: "Here's what I'm about to generate. The model has 13 CTEs, 32 output columns, 5 risk flags. The scoring starts at base 20, adds/subtracts per the contract. Approve?"
-- The developer stays in control without doing the writing
-
-**3. Progressive Disclosure**
-
-CoCo handles complexity in layers:
-- **Phase 1**: Business person describes the problem (canvas)
-- **Phase 2**: CoCo + architect formalize it (contract)
-- **Phase 3**: CoCo generates all code (artifacts)
-- **Phase 4**: CoCo deploys and tests (automation)
-- **Phase 5**: CoCo validates against contract (quality)
-
-Each phase adds technical detail, but the user only needs to understand and approve their layer.
-
-**4. Error Prevention Over Error Recovery**
-
-The prompt.md's Forbidden Patterns section means CoCo **never generates** known-bad patterns:
-- No `CURRENT_ROLE()` in masking → no security gaps
-- No `env_var()` in profiles.yml → no deploy failures
-- No schema overrides → no concatenation bugs
-- No external packages → no EAI dependency issues
-
-These are lessons learned from real deployments, baked into the guardrails.
-
-### How to Talk About This with Customers
-
-**For Data Leaders**:
-> "Cortex Code turns your data contract into a deployed, tested, governed data product 
-> in a single session. The contract is the spec. CoCo is the builder. Your team is the 
-> reviewer and approver."
-
-**For Data Engineers**:
-> "You define the business logic in the contract's derivation fields. CoCo generates the 
-> dbt model, schema, tests, masking policies, and DMFs. You review, approve, and deploy 
-> with `snow dbt deploy`. No boilerplate. No copy-paste errors."
-
-**For Data Governance**:
-> "Every column traces to a contract. Every test traces to a quality rule. Every masking 
-> policy traces to a PII flag. The prompt.md enforces standards automatically — 
-> IS_ROLE_IN_SESSION(), DMF scheduling, naming conventions. Governance by design, 
-> not by audit."
-
-**For Platform Teams**:
-> "Skills are reusable across data products. prompt.md is version-controlled. The 
-> deployer skill handles Snowflake-native dbt end-to-end. Your team maintains the 
-> skills and guardrails; product teams consume them through CoCo."
-
-### Field Team Action Items
-
-1. **Run the reference implementation** — Use this guide end-to-end on a sample data product
-2. **Customize prompt.md** — Add your customer's naming conventions, compliance requirements, and forbidden patterns
-3. **Build 2-3 skills** — Start with contract-generator and model-sql-generator
-4. **Demo the developer experience** — Show the canvas → contract → code → deploy → validate flow in a live session
-5. **Capture new pitfalls** — Every engagement surfaces new errors; add them to the Error Playbook and Forbidden Patterns
-6. **Measure the uplift** — Track time-to-deploy before/after CoCo adoption
+| Skill | Type | Why |
+|-------|------|-----|
+| **contract-generator** | AI | Interprets business intent from canvas, maps to ODCS structure |
+| **model-sql generator** | AI | Writes transformation logic (CTEs, joins, scoring algorithms) |
+| **schema-yml generator** | Template | Deterministic: column name → test type mapping from contract |
+| **masking-policy generator** | Template | Deterministic: PII column + authorized roles → policy DDL |
+| **dmf-setup generator** | Template | Deterministic: quality rule type → DMF function mapping |
+| **test-generator** | Template | Deterministic: business rule condition → singular test SQL |
+| **deployer** | Orchestration | Runs `snow dbt deploy` → `execute run` → `execute test` in sequence |
 
 ---
 
@@ -412,11 +135,11 @@ These are lessons learned from real deployments, baked into the guardrails.
 
 ---
 
-## 4. Operating Protocol
+## 3. Operating Protocol
 
 These rules apply to **every phase** and **every interaction**. Follow them without exception.
 
-### 4.1 Verify Before Acting
+### 3.1 Verify Before Acting
 
 ```
 RULE: Never assume. Always confirm.
@@ -439,7 +162,7 @@ Before each phase transition or significant action:
 | Test results review | After every test run |
 | Phase completion | Before marking any phase as DONE |
 
-### 4.2 Maintain TODO.md
+### 3.2 Maintain TODO.md
 
 ```
 RULE: TODO.md is the single source of progress truth.
@@ -515,7 +238,7 @@ RULE: TODO.md is the single source of progress truth.
 |--------|------|----------|
 ```
 
-### 4.3 Comment After Every Intervention
+### 3.3 Comment After Every Intervention
 
 ```
 RULE: Leave breadcrumbs. Every change gets a comment.
@@ -534,7 +257,7 @@ Example:
 
 ---
 
-## 5. Phase 0: Setup & Prerequisites
+## 4. Phase 0: Setup & Prerequisites
 
 ### Objective
 Ensure the Snowflake environment and local tools are ready.
@@ -580,7 +303,7 @@ Ensure the Snowflake environment and local tools are ready.
 
 ---
 
-## 6. Phase 1: Discover
+## 5. Phase 1: Discover
 
 ### Objective
 Understand the business problem, stakeholders, and data sources by reading the Data Product Canvas.
@@ -627,7 +350,7 @@ Understand the business problem, stakeholders, and data sources by reading the D
 
 ---
 
-## 7. Phase 2: Design
+## 6. Phase 2: Design
 
 ### Objective
 Create an Open Data Contract Standard (ODCS) v2.2 compliant YAML that serves as the single source of truth for all downstream code generation.
@@ -718,7 +441,7 @@ DATA CONTRACT → INFORMS → Business Logic (dbt models)
 
 ---
 
-## 8. Phase 3: Deliver
+## 7. Phase 3: Deliver
 
 ### Objective
 Generate all dbt and SQL artifacts from the data contract. The contract is the single source of truth.
@@ -735,7 +458,7 @@ Data Contract → Contract Parser → 4 outputs:
 "Only transformation logic uses AI — all other outputs are deterministic parsers"
 ```
 
-### Step 8.1: Generate dbt Model SQL
+### Step 7.1: Generate dbt Model SQL
 
 **Pattern**: CTE-based transformation pipeline
 
@@ -770,7 +493,7 @@ SELECT * FROM final
 
 **Save to**: `03_deliver/dbt_project/models/{model_name}.sql`
 
-### Step 8.2: Generate schema.yml
+### Step 7.2: Generate schema.yml
 
 **Parse from contract**: sources, columns, descriptions, tests
 
@@ -816,7 +539,7 @@ WHERE {score_column} < 0 OR {score_column} > 100
 
 **Save to**: `03_deliver/dbt_project/models/schema.yml`
 
-### Step 8.3: Generate Masking Policies
+### Step 7.3: Generate Masking Policies
 
 **Parse from contract**: columns where `pii: true` and `masking_policy` is defined
 
@@ -835,7 +558,7 @@ RETURNS STRING ->
 
 **Save to**: `03_deliver/masking_policies.sql`
 
-### Step 8.4: Generate DMF Setup
+### Step 7.4: Generate DMF Setup
 
 **Parse from contract**: quality_rules → map to Snowflake Data Metric Functions
 
@@ -855,7 +578,7 @@ ALTER TABLE {table} ADD DATA METRIC FUNCTION
 
 **Save to**: `03_deliver/dmf_setup.sql`
 
-### Step 8.5: Generate Singular Tests
+### Step 7.5: Generate Singular Tests
 
 Create one SQL file per `business_rule` in the contract:
 
@@ -869,7 +592,7 @@ WHERE NOT ({rule.condition})
 
 **Save to**: `03_deliver/dbt_project/tests/`
 
-### Step 8.6: Create dbt Project Structure
+### Step 7.6: Create dbt Project Structure
 
 ```
 03_deliver/dbt_project/
@@ -903,12 +626,12 @@ models:
   {project_name}:
     +materialized: table
     +tags: [...]
-    # ⚠️ Do NOT add +schema here — causes concatenation issue
+    # Do NOT add +schema here — causes concatenation issue
 ```
 
 **profiles.yml** — for Snowflake-native dbt:
 ```yaml
-# ⚠️ CRITICAL: Snowflake-native dbt rules:
+# CRITICAL: Snowflake-native dbt rules:
 # 1. NO env_var() — not supported in Snowflake-native execution
 # 2. NO password/authenticator — Snowflake handles auth
 # 3. Use LITERAL values for account and user — no Jinja expressions
@@ -919,16 +642,16 @@ models:
   outputs:
     dev:
       type: snowflake
-      account: {ORG}-{ACCOUNT_NAME}   # ← Get from SELECT CURRENT_ORGANIZATION_NAME() || '-' || CURRENT_ACCOUNT_NAME()
-      user: {USER}                     # ← Get from SELECT CURRENT_USER()
-      role: {ROLE}                     # ← Get from SELECT CURRENT_ROLE()
+      account: {ORG}-{ACCOUNT_NAME}   # Get from SELECT CURRENT_ORGANIZATION_NAME() || '-' || CURRENT_ACCOUNT_NAME()
+      user: {USER}                     # Get from SELECT CURRENT_USER()
+      role: {ROLE}                     # Get from SELECT CURRENT_ROLE()
       database: {DATABASE}
       warehouse: {WAREHOUSE}
       schema: {SCHEMA}
       threads: 4
 ```
 
-### Step 8.7: Verify and Present to User
+### Step 7.7: Verify and Present to User
 
 ```
 → ASK USER: "Code generation complete. Here's what was created:
@@ -946,7 +669,7 @@ Mark all Deliver tasks as complete. Record file paths and line counts.
 
 ---
 
-## 9. Phase 4: Deploy
+## 8. Phase 4: Deploy
 
 ### Objective
 Deploy the dbt project to Snowflake using Snowflake-native dbt (`snow dbt deploy`).
@@ -984,13 +707,13 @@ Deploy the dbt project to Snowflake using Snowflake-native dbt (`snow dbt deploy
      -c {CONNECTION_NAME}
    ```
 
-2. **If deploy fails** → See [Error Playbook](#10-error-playbook)
+2. **If deploy fails** → See [Error Playbook](#12-error-playbook)
 
 3. **Execute dbt run**
    ```bash
    snow dbt execute \
      -c {CONNECTION_NAME} \
-     --database {DATABASE} \
+     --database {DB} \
      --schema {SCHEMA} \
      {PROJECT_NAME} run
    ```
@@ -1001,7 +724,7 @@ Deploy the dbt project to Snowflake using Snowflake-native dbt (`snow dbt deploy
    ```bash
    snow dbt execute \
      -c {CONNECTION_NAME} \
-     --database {DATABASE} \
+     --database {DB} \
      --schema {SCHEMA} \
      {PROJECT_NAME} test
    ```
@@ -1062,7 +785,7 @@ Mark all Deploy tasks as complete. Add Deployment Summary with metrics and test 
 
 ---
 
-## 10. Phase 5: Validate
+## 9. Phase 5: Validate
 
 ### Objective
 Run comprehensive validation to confirm the data product meets contract specifications.
@@ -1140,7 +863,7 @@ Mark Validate tasks as complete. Record test result summary table.
 
 ---
 
-## 11. Phase 6: Operate
+## 10. Phase 6: Operate
 
 ### Objective
 Establish ongoing operations: RACI accountability, monitoring, and refresh schedules.
@@ -1200,7 +923,7 @@ Establish ongoing operations: RACI accountability, monitoring, and refresh sched
 
 ---
 
-## 12. Phase 7: Cleanup
+## 11. Phase 7: Cleanup
 
 ### Objective
 Tear down all resources created during the exercise (for demo/workshop environments).
@@ -1209,7 +932,7 @@ Tear down all resources created during the exercise (for demo/workshop environme
 
 1. **Confirm with user**
    ```
-   → ASK USER: "⚠️ This will permanently delete ALL resources created during the exercise:
+   → ASK USER: "This will permanently delete ALL resources created during the exercise:
      - Database: {database} (and all schemas, tables, views)
      - Warehouse: {warehouse}
      - All masking policies, DMFs, alerts, tasks
@@ -1238,9 +961,9 @@ Tear down all resources created during the exercise (for demo/workshop environme
 
 ---
 
-## 13. Error Playbook
+## 12. Error Playbook
 
-Common errors encountered during the exercise and their fixes.
+Common errors encountered during the lifecycle and their fixes.
 
 ### E1: Role Does Not Exist
 
@@ -1323,7 +1046,7 @@ Problem: `snow dbt deploy` reports version conflict
 
 ---
 
-## 14. Checklist Summary
+## 13. Checklist Summary
 
 Use this checklist at the end of the exercise to confirm everything is complete.
 
@@ -1461,4 +1184,4 @@ Read the Data Product Canvas at [PATH] and start the Discovery phase.
 
 ---
 
-*Generated as a reusable guide for contract-driven data product lifecycle on Snowflake.*
+*A reusable guide for contract-driven data product lifecycle on Snowflake.*

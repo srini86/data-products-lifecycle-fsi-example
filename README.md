@@ -155,6 +155,7 @@ Choose **3a** or **3b**:
 04_operate/                            # Monitoring & RACI template
 05_refine/                             # Contract v2 + evolution examples
 06_cleanup/                            # Cleanup script
+prompt.md                              # CoCo standing rules (auto-read at session start)
 ```
 
 ---
