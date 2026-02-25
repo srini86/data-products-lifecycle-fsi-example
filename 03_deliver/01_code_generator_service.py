@@ -282,7 +282,7 @@ AUTHORIZED ROLES:
 {', '.join(authorized_roles)}
 
 Generate ONLY the CREATE MASKING POLICY statement using Snowflake native functions.
-Use CURRENT_ROLE() for role checking.
+Use IS_ROLE_IN_SESSION() for role checking — NEVER CURRENT_ROLE() (it does not respect role hierarchy).
 Use LEFT(), CONCAT() for string manipulation - no regex.
 Include a COMMENT ON MASKING POLICY statement.
 
@@ -336,7 +336,7 @@ def generate_schema_yml(contract_info: Dict) -> str:
         # (Would need to extract from constraints)
         
         if tests:
-            col_def['tests'] = tests
+            col_def['data_tests'] = tests
         
         if col['tags']:
             col_def['tags'] = col['tags']
@@ -362,16 +362,17 @@ def generate_schema_yml(contract_info: Dict) -> str:
         }]
     }
     
-    # Combine sources and models
+    # Combine sources and models into a single YAML document
+    combined_yaml = {
+        'version': 2,
+        'sources': sources_yaml['sources'],
+        'models': models_yaml['models']
+    }
+    
     combined = "# ============================================================================\n"
-    combined += "# SOURCES\n"
+    combined += "# SCHEMA: Sources & Models — Generated from Data Contract\n"
     combined += "# ============================================================================\n"
-    combined += yaml.dump(sources_yaml, default_flow_style=False, sort_keys=False)
-    combined += "\n\n"
-    combined += "# ============================================================================\n"
-    combined += "# MODELS\n"
-    combined += "# ============================================================================\n"
-    combined += yaml.dump(models_yaml, default_flow_style=False, sort_keys=False)
+    combined += yaml.dump(combined_yaml, default_flow_style=False, sort_keys=False)
     
     return combined
 
@@ -402,8 +403,8 @@ def generate_masking_policies_sql(contract_info: Dict, session: Session = None, 
         authorized_roles = policy_def.get('authorized_roles', 
                                           contract_info.get('access_control', {}).get('authorized_roles', []))
         
-        # Format roles for SQL
-        roles_sql = ", ".join([f"'{role.upper()}'" for role in authorized_roles])
+        # Format roles for IS_ROLE_IN_SESSION() — respects role hierarchy (NEVER use CURRENT_ROLE)
+        roles_sql = " OR ".join([f"IS_ROLE_IN_SESSION('{role.upper()}')" for role in authorized_roles])
         
         applies_to = policy_def.get('applies_to', '')
         description = policy_def.get('description', '')
@@ -423,7 +424,7 @@ def generate_masking_policies_sql(contract_info: Dict, session: Session = None, 
             f"RETURNS {data_type} ->",
             f"    CASE",
             f"        -- Authorized roles can see full value",
-            f"        WHEN CURRENT_ROLE() IN ({roles_sql}) THEN val",
+            f"        WHEN {roles_sql} THEN val",
             f"        -- All other roles see masked value",
             f"        ELSE CONCAT(LEFT(val, 1), '****')",
             f"    END;",
@@ -643,9 +644,10 @@ def generate_dmf_sql(contract_info: Dict) -> str:
 def call_cortex(session: Session, prompt: str, model: str = "claude-3-5-sonnet") -> str:
     """Call Cortex LLM to generate code"""
     try:
-        escaped_prompt = prompt.replace("'", "''")
-        sql = f"SELECT SNOWFLAKE.CORTEX.COMPLETE('{model}', '{escaped_prompt}') as response"
-        result = session.sql(sql).collect()
+        result = session.sql(
+            "SELECT SNOWFLAKE.CORTEX.COMPLETE(?, ?) as response",
+            params=[model, prompt]
+        ).collect()
         
         if result and result[0]['RESPONSE']:
             return result[0]['RESPONSE']
@@ -755,16 +757,24 @@ elif input_method == "☁️ Load from Stage":
     
     if stage_path and file_name and st.button("Load from Stage"):
         try:
-            session = st.session_state.session
-            sql = f"""
-                SELECT $1 as content 
-                FROM @{stage_path}/{file_name}
-                (FILE_FORMAT => (TYPE = 'CSV' FIELD_DELIMITER = NONE))
-            """
-            result = session.sql(sql).collect()
-            if result:
-                contract_yaml = '\n'.join([row['CONTENT'] for row in result])
-                st.success(f"✅ Loaded from stage: {file_name}")
+            # Validate inputs — stage paths and file names must be alphanumeric
+            # with limited special chars (dots, underscores, hyphens, slashes)
+            import re
+            if not re.match(r'^[A-Za-z0-9_./@-]+$', stage_path):
+                st.error("Invalid stage path. Only alphanumeric, dots, underscores, hyphens, and slashes allowed.")
+            elif not re.match(r'^[A-Za-z0-9_.-]+$', file_name):
+                st.error("Invalid file name. Only alphanumeric, dots, underscores, and hyphens allowed.")
+            else:
+                session = st.session_state.session
+                sql = f"""
+                    SELECT $1 as content 
+                    FROM @{stage_path}/{file_name}
+                    (FILE_FORMAT => (TYPE = 'CSV' FIELD_DELIMITER = NONE))
+                """
+                result = session.sql(sql).collect()
+                if result:
+                    contract_yaml = '\n'.join([row['CONTENT'] for row in result])
+                    st.success(f"Loaded from stage: {file_name}")
         except Exception as e:
             st.error(f"Error loading from stage: {str(e)}")
 

@@ -28,7 +28,7 @@ metadata:
     created_by: "alex.morgan@bank.com"
     last_updated: "2024-07-15T10:00:00Z"
     business_purpose: "Predict and explain customer churn risk with CLV prioritization"
-    canvas_reference: "01_discover/data_product_canvas.yaml"
+    canvas_reference: "01_discover/data_product_canvas.png"
     previous_version: "1.0.0"
     backward_compatible: true
 
@@ -127,6 +127,8 @@ spec:
         key_columns: ["complaint_id", "customer_id", "status", "severity"]
         filter: "Last 12 months of complaints"
       # NEW in v2.0: Product history for downgrade detection
+      # NOTE: PRODUCT_SNAPSHOTS table is not in 00_setup/setup.sql.
+      #       Create it before deploying v2 or adapt to your own product history table.
       - name: "PRODUCT_HISTORY"
         location: "RETAIL_BANKING_DB.RAW.PRODUCT_SNAPSHOTS"
         description: "Historical product holdings snapshots"
