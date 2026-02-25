@@ -8,9 +8,9 @@
 ## How to use Cortex Code
 
 ```
-CoCo Skills:
-  monitoring_rules   — Generates monitoring configuration from contract SLAs
-  debug              — Diagnoses data quality issues and pipeline failures
+Prompt CoCo:
+  "Generate monitoring SQL from the SLAs in my data contract"
+  "Diagnose data quality issues in the RETAIL_CUSTOMER_CHURN_RISK table"
 ```
 
 ## Reference example

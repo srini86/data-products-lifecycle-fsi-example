@@ -26,7 +26,7 @@ metadata:
     created_by: "alex.morgan@bank.com"
     last_updated: "2024-01-15T10:00:00Z"
     business_purpose: "Predict and explain customer churn risk for retention"
-    canvas_reference: "01_discover/data_product_canvas.yaml"
+    canvas_reference: "01_discover/data_product_canvas.png"
 
 spec:
   # ==========================================================================

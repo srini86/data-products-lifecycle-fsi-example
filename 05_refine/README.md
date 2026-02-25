@@ -11,10 +11,9 @@
 2. Use CoCo to update the contract version and regenerate artifacts.
 
 ```
-CoCo Skills:
-  data_contract_parser   — Parses updated contract for change detection
-  test_generator         — Regenerates tests for new/changed rules
-  schema_generator       — Regenerates schema docs for updated columns
+Prompt CoCo:
+  "Update the data contract to v2.0 with these new columns: ..."
+  "Regenerate the dbt schema.yml and tests for the updated contract"
 ```
 
 ## Reference example

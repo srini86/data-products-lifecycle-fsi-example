@@ -43,7 +43,7 @@ Wait for user approval. Do not proceed without confirmation.
 
 ### Step 3: Update the Error Playbook
 
-For each approved error, add an entry to the Error Playbook section of `PROMPT_INSTRUCTION_GUIDE.md`.
+For each approved error, add an entry to the Error Playbook section of `.cortex/guides/DATA_PRODUCT_PLAYBOOK.md`.
 
 Use this format:
 ```markdown
@@ -101,12 +101,12 @@ Add a line to TODO.md recording the feedback capture:
 - ALWAYS use the exact error message from the session (don't paraphrase)
 - ALWAYS add an [INTERVENTION] comment with the date when editing files
 - If no errors were found in the session, say so and ask if the user has any manual observations to capture
-- If prompt.md does not exist yet, create it using the reference template from PROMPT_INSTRUCTION_GUIDE.md Section 2
+- If prompt.md does not exist yet, create it using the reference template from `.cortex/guides/DATA_PRODUCT_PLAYBOOK.md` Section 2
 
 ## File Locations
 
 | File | Purpose | Section to Update |
 |------|---------|-------------------|
-| `PROMPT_INSTRUCTION_GUIDE.md` | Error Playbook | Section 13 (append new E{N} entries) |
+| `.cortex/guides/DATA_PRODUCT_PLAYBOOK.md` | Error Playbook | Section 13 (append new E{N} entries) |
 | `prompt.md` (project root) | Forbidden Patterns | `## Forbidden Patterns` section |
-| `TODO.md` (project root) | Progress tracking | Add completion line |
+| `.cortex/guides/TODO.md` | Progress tracking | Add completion line |

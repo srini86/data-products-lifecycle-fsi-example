@@ -7,13 +7,16 @@
 ## How to use Cortex Code
 
 1. Provide your completed Data Product Canvas (from `01_discover/`) as input.
-2. Use the `data_contract_generator` skill to produce a draft contract.
+2. Ask CoCo to generate a data contract from the canvas.
 3. Review and refine the generated contract with your domain experts.
 
 ```
-CoCo Skill: data_contract_generator
-Input:       01_discover/data_product_canvas.png (or equivalent)
-Output:      02_design/<your_contract>.yaml
+Prompt CoCo:
+  "Generate an ODCS v2.2 data contract from the canvas at
+   01_discover/data_product_canvas.png"
+
+Input:   01_discover/data_product_canvas.png (or equivalent)
+Output:  02_design/<your_contract>.yaml
 ```
 
 ## Reference example

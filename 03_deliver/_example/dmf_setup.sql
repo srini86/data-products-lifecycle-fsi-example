@@ -1,7 +1,7 @@
 -- =============================================================================
 -- DATA METRIC FUNCTIONS (DMF) SETUP: Retail Customer Churn Risk
 -- =============================================================================
--- Generated from: 02_design/retail_churn_contract.yaml
+-- Generated from: 02_design/_example/churn_risk_data_contract.yaml
 --
 -- DMFs provide continuous data quality monitoring in Snowflake.
 -- These are applied based on quality_rules defined in the contract.
@@ -14,8 +14,9 @@ USE SCHEMA DATA_PRODUCTS;
 -- GRANT PERMISSIONS FOR DMF
 -- =============================================================================
 -- DMFs require specific permissions to run
+-- NOTE: Replace ACCOUNTADMIN with a least-privilege role in production
 
-GRANT EXECUTE DATA METRIC FUNCTION ON ACCOUNT TO ROLE DATA_PRODUCTS_ROLE;
+GRANT EXECUTE DATA METRIC FUNCTION ON ACCOUNT TO ROLE ACCOUNTADMIN;
 
 -- =============================================================================
 -- COMPLETENESS CHECKS (NULL_COUNT)
@@ -157,6 +158,8 @@ CREATE OR REPLACE ALERT dmf_alert_duplicate_customer_id
         );
 
 -- Alert when ROW_COUNT < 1000
+-- Demo threshold: 1000 (demo data has ~984 rows — this will trigger intentionally)
+-- Contract specifies > 50,000 for production — adjust to match your data volume
 CREATE OR REPLACE ALERT dmf_alert_low_row_count
     WAREHOUSE = DATA_PRODUCTS_WH
     SCHEDULE = 'USING CRON 0 7 * * * UTC'
