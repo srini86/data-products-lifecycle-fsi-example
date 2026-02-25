@@ -80,10 +80,15 @@ Contract YAML ──► Cortex Code Agent
 - Run Step 5 to create the Streamlit app (only needed for 3a)
 - Run Step 6 to verify all assets
 
-### Step 2: Review the Data Contract
+### Step 2: Design Your Data Contract
 
-- Open `02_design/_example/churn_risk_data_contract.yaml`
-- This contract defines schema, quality rules, masking policies, and SLAs
+- An example contract is provided at `02_design/_example/churn_risk_data_contract.yaml` — use it as a reference
+- To create your own, provide CoCo with your Data Product Canvas (or requirements) and ask it to generate a contract:
+  ```
+  "Generate an ODCS v2.2 data contract for <your data product>. 
+   Use 02_design/_example/churn_risk_data_contract.yaml as a reference for structure."
+  ```
+- The contract defines schema, quality rules, masking policies, and SLAs
 - It is the **single input** that drives all code generation in Step 3
 
 ### Step 3: Generate & Deploy Data Product
@@ -110,13 +115,16 @@ Choose **3a** or **3b**:
 - Use these prompts to walk through the lifecycle:
   1. `"Read the data contract at 02_design/_example/churn_risk_data_contract.yaml and generate a complete dbt project — model SQL, schema.yml, and tests"`
   2. `"Generate masking policies and DMF setup SQL based on the governance rules in the contract"`
-  3. `"Deploy the dbt project to Snowflake using snow dbt deploy and run it"`
-  4. `"Validate the deployment — run tests, check row counts, verify masking is applied"`
+  3. `"Generate monitoring and observability SQL — freshness SLAs, quality checks, usage tracking, and alerts"`
+  4. `"Deploy the dbt project to Snowflake using snow dbt deploy and run it"`
+  5. `"Validate the deployment — run tests, check row counts, verify masking is applied"`
 - Full playbook: [`.cortex/guides/DATA_PRODUCT_PLAYBOOK.md`](.cortex/guides/DATA_PRODUCT_PLAYBOOK.md) — covers skills architecture, guardrails, and error playbook
 
 ### Step 4: Operate & Monitor
 
-- Run `04_operate/_example/monitoring_observability.sql` in Snowsight
+- If you used **Step 3a**, run `04_operate/_example/monitoring_observability.sql` manually in Snowsight
+- If you used **Step 3b**, monitoring was generated in prompt 3 above
+- What it covers:
   - Freshness SLAs and availability
   - Quality expectation status and masking verification
   - Usage by role/user and query patterns
