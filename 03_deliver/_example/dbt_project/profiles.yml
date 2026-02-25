@@ -5,9 +5,9 @@ snowflake_demo:
   outputs:
     dev:
       type: snowflake
-      account: "{your_snowflake_account}"
-      user: "{your_user}"
-      role: ACCOUNTADMIN
+      account: "<YOUR_SNOWFLAKE_ACCOUNT>"   # e.g. xy12345.us-east-1
+      user: "<YOUR_USER>"                   # e.g. JSMITH
+      role: ACCOUNTADMIN                    # Replace with least-privilege role in production
       database: RETAIL_BANKING_DB
       warehouse: DATA_PRODUCTS_WH
       schema: DATA_PRODUCTS

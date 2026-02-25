@@ -14,7 +14,7 @@
 ==============================================================================
 DATA PRODUCT: Retail Customer Churn Risk
 ==============================================================================
-Generated from: 02_design/retail_churn_contract.yaml
+Generated from: 02_design/_example/churn_risk_data_contract.yaml
 Owner: Alex Morgan
 Version: 1.0.0
 

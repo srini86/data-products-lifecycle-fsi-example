@@ -11,14 +11,14 @@
 ## How to use Cortex Code
 
 1. Point CoCo at your data contract from `02_design/`.
-2. Use the skills below to generate each artifact.
+2. Use the prompts below to generate each artifact.
 3. Review, refine, and run `dbt build` to materialize.
 
 ```
-CoCo Skills:
-  data_contract_parser   — Parses the contract into structured metadata
-  schema_generator       — Generates dbt schema.yml with docs and tests
-  test_generator         — Generates custom dbt test SQL files
+Prompt CoCo:
+  "Parse the data contract and generate a dbt model, schema.yml, and tests"
+  "Generate masking policies from the PII/sensitivity tags in the contract"
+  "Generate DMF setup SQL from the quality rules in the contract"
 ```
 
 ## Code Generator App

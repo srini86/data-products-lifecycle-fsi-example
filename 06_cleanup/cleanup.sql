@@ -13,6 +13,7 @@
 --   -- OR run in Snowsight
 -- ============================================================================
 
+-- NOTE: Replace ACCOUNTADMIN with a least-privilege role in production
 USE ROLE ACCOUNTADMIN;
 
 -- ============================================================================

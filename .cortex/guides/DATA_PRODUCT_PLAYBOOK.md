@@ -556,7 +556,7 @@ RETURNS STRING ->
 
 **Critical**: Use `IS_ROLE_IN_SESSION()` (not `CURRENT_ROLE()`) — this correctly handles role hierarchy.
 
-**Save to**: `03_deliver/masking_policies.sql`
+**Save to**: `03_deliver/_example/masking_policies.sql`
 
 ### Step 7.4: Generate DMF Setup
 

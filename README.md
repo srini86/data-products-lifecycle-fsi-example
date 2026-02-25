@@ -82,7 +82,7 @@ Contract YAML ──► Cortex Code Agent
 
 ### Step 2: Review the Data Contract
 
-- Open `02_design/churn_risk_data_contract.yaml`
+- Open `02_design/_example/churn_risk_data_contract.yaml`
 - This contract defines schema, quality rules, masking policies, and SLAs
 - It is the **single input** that drives all code generation in Step 3
 
@@ -100,15 +100,15 @@ Choose **3a** or **3b**:
   - `masking_policies.sql`
 - Create a dbt Project in Snowsight → add model + schema → Compile → Run
 - Run `masking_policies.sql` in a worksheet
-- Run `03_deliver/generated_output_samples/02_data_quality_dmf.sql` for DMF setup
-- Run `03_deliver/generated_output_samples/03_semantic_view_marketplace.sql` for semantic view
-- Sample outputs: `03_deliver/generated_output_samples/`
+- Run `03_deliver/_example/02_data_quality_dmf.sql` for DMF setup
+- Run `03_deliver/_example/03_semantic_view_marketplace.sql` for semantic view
+- Sample outputs: `03_deliver/_example/`
 
 #### Step 3b: Cortex Code
 
 - Start Cortex Code in the repo directory — skills auto-load from `.cortex/skills/`
 - Use these prompts to walk through the lifecycle:
-  1. `"Read the data contract at 02_design/churn_risk_data_contract.yaml and generate a complete dbt project — model SQL, schema.yml, and tests"`
+  1. `"Read the data contract at 02_design/_example/churn_risk_data_contract.yaml and generate a complete dbt project — model SQL, schema.yml, and tests"`
   2. `"Generate masking policies and DMF setup SQL based on the governance rules in the contract"`
   3. `"Deploy the dbt project to Snowflake using snow dbt deploy and run it"`
   4. `"Validate the deployment — run tests, check row counts, verify masking is applied"`
@@ -116,15 +116,15 @@ Choose **3a** or **3b**:
 
 ### Step 4: Operate & Monitor
 
-- Run `04_operate/monitoring_observability.sql` in Snowsight
+- Run `04_operate/_example/monitoring_observability.sql` in Snowsight
   - Freshness SLAs and availability
   - Quality expectation status and masking verification
   - Usage by role/user and query patterns
 
 ### Step 5: Refine & Evolve
 
-- See `05_refine/churn_risk_data_contract_v2.yaml` for an evolved contract (adds CLV, vulnerability indicator)
-- Run `05_refine/evolution_example.sql` for schema evolution patterns
+- See `05_refine/_example/churn_risk_data_contract_v2.yaml` for an evolved contract (adds CLV, vulnerability indicator)
+- Run `05_refine/_example/evolution_example.sql` for schema evolution patterns
 
 ### Cleanup
 
@@ -142,18 +142,33 @@ Choose **3a** or **3b**:
         └── TODO.md
 00_setup/                              # Setup script + lifecycle diagram
 01_discover/                           # Data product canvas
-02_design/                             # Data contract + diagrams
+02_design/
+  ├── README.md                        # Phase guide
+  ├── data_contract_informs.png        # Contract-driven architecture diagram
+  └── _example/                        # FSI churn-risk example
+        └── churn_risk_data_contract.yaml
 03_deliver/
-  ├── 01_code_generator_service.py     # Code generator service
-  ├── validate_deployment.sql          # Validation tests
-  └── generated_output_samples/        # CoCo-generated sample outputs
+  ├── README.md                        # Phase guide
+  ├── 01_code_generator_service.py     # Streamlit code generator app
+  ├── code_generation_flow.png
+  ├── cortex_code_skills_flow.png
+  └── _example/                        # FSI churn-risk generated outputs
         ├── dbt_project/               # Complete dbt project
         ├── masking_policies.sql
         ├── dmf_setup.sql
         ├── 02_data_quality_dmf.sql
-        └── 03_semantic_view_marketplace.sql
-04_operate/                            # Monitoring & RACI template
-05_refine/                             # Contract v2 + evolution examples
+        ├── 03_semantic_view_marketplace.sql
+        └── validate_deployment.sql
+04_operate/
+  ├── README.md                        # Phase guide
+  ├── raci_template.md                 # Reusable RACI template
+  └── _example/
+        └── monitoring_observability.sql
+05_refine/
+  ├── README.md                        # Phase guide
+  └── _example/
+        ├── churn_risk_data_contract_v2.yaml
+        └── evolution_example.sql
 06_cleanup/                            # Cleanup script
 prompt.md                              # CoCo standing rules (auto-read at session start)
 ```

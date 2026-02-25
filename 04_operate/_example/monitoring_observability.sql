@@ -13,6 +13,7 @@
 -- Prerequisites: Run 03_deliver/02_data_quality_dmf.sql first to set up DMFs.
 -- ============================================================================
 
+-- NOTE: Replace ACCOUNTADMIN with a least-privilege role in production
 USE ROLE ACCOUNTADMIN;
 USE DATABASE RETAIL_BANKING_DB;
 

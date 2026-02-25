@@ -12,7 +12,7 @@
 --
 -- USAGE:
 --   1. Run Steps 1-2 in Snowsight (creates DB, schemas, stages)
---   2. Upload 03_deliver/01_dbt_generator_app.py to STREAMLIT_APPS stage
+--   2. Upload 03_deliver/01_code_generator_service.py to STREAMLIT_APPS stage
 --   3. Run Steps 3-6 to complete setup
 --
 -- DATA VOLUMES:
@@ -23,6 +23,7 @@
 --   - ~200 complaints
 -- ============================================================================
 
+-- NOTE: Replace ACCOUNTADMIN with a least-privilege role in production
 USE ROLE ACCOUNTADMIN;
 
 -- ============================================================================
@@ -575,7 +576,7 @@ SELECT '✅ Step 4 Complete: All sample data created and optimized' AS status;
 -- │ 2. Name: dbt_code_generator                                             │
 -- │ 3. Database: RETAIL_BANKING_DB, Schema: GOVERNANCE                      │
 -- │ 4. Warehouse: DATA_PRODUCTS_WH                                          │
--- │ 5. Open 03_deliver/01_dbt_generator_app.py, copy ALL the code          │
+-- │ 5. Open 03_deliver/01_code_generator_service.py, copy ALL the code       │
 -- │ 6. Paste into the Streamlit editor and click "Run"                      │
 -- │ 7. Done! Skip to Step 6 below.                                          │
 -- └─────────────────────────────────────────────────────────────────────────┘
@@ -585,7 +586,7 @@ SELECT '✅ Step 4 Complete: All sample data created and optimized' AS status;
 -- ├─────────────────────────────────────────────────────────────────────────┤
 -- │ 1. Go to: Data → Databases → RETAIL_BANKING_DB → GOVERNANCE → Stages   │
 -- │ 2. Click "STREAMLIT_APPS" → "+ Files"                                   │
--- │ 3. Upload: 03_deliver/01_dbt_generator_app.py                           │
+-- │ 3. Upload: 03_deliver/01_code_generator_service.py                      │
 -- │ 4. Run the CREATE STREAMLIT SQL below                                   │
 -- └─────────────────────────────────────────────────────────────────────────┘
 --
@@ -598,13 +599,13 @@ SELECT '✅ Step 4 Complete: All sample data created and optimized' AS status;
 
 -- USE SCHEMA RETAIL_BANKING_DB.GOVERNANCE;
 
--- -- Verify the file exists in the stage (should show 01_dbt_generator_app.py)
+-- -- Verify the file exists in the stage (should show 01_code_generator_service.py)
 -- LIST @RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps;
 
 -- -- Create the Streamlit app from the staged file
 -- CREATE OR REPLACE STREAMLIT dbt_code_generator
 --     ROOT_LOCATION = '@RETAIL_BANKING_DB.GOVERNANCE.streamlit_apps'
---     MAIN_FILE = '01_dbt_generator_app.py'
+--     MAIN_FILE = '01_code_generator_service.py'
 --     QUERY_WAREHOUSE = 'DATA_PRODUCTS_WH'
 --     TITLE = 'dbt Code Generator'
 --     COMMENT = 'Generates dbt models from data contracts using Cortex LLM';
@@ -652,8 +653,8 @@ UNION ALL SELECT '  1. Open Streamlit app: Snowsight → Projects → Streamlit'
 UNION ALL SELECT '  2. Paste contract YAML or upload file'
 UNION ALL SELECT '  3. Click "Generate All Outputs" to create dbt model'
 UNION ALL SELECT '  4. Copy generated SQL and run in Snowsight'
-UNION ALL SELECT '  5. Run: 03_deliver/02_generated_output/masking_policies.sql'
-UNION ALL SELECT '  6. Run: 03_deliver/03_semantic_view_marketplace.sql'
-UNION ALL SELECT '  7. Run: 04_operate/monitoring_observability.sql'
+UNION ALL SELECT '  5. Run: 03_deliver/_example/masking_policies.sql'
+UNION ALL SELECT '  6. Run: 03_deliver/_example/03_semantic_view_marketplace.sql'
+UNION ALL SELECT '  7. Run: 04_operate/_example/monitoring_observability.sql'
 UNION ALL SELECT ''
 UNION ALL SELECT '═══════════════════════════════════════════════════════════';
