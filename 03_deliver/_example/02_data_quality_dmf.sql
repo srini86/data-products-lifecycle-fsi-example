@@ -10,6 +10,7 @@
 -- Docs: https://docs.snowflake.com/en/user-guide/data-quality-intro
 -- ============================================================================
 
+-- NOTE: Replace ACCOUNTADMIN with a least-privilege role in production
 USE ROLE ACCOUNTADMIN;
 USE DATABASE RETAIL_BANKING_DB;
 USE SCHEMA DATA_PRODUCTS;
@@ -128,6 +129,8 @@ ALTER TABLE RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
     ADD DATA METRIC FUNCTION SNOWFLAKE.CORE.ROW_COUNT 
     ON ()
     EXPECTATION min_row_count_500 (VALUE >= 500);
+    -- Demo threshold: 500 (demo data has ~984 rows)
+    -- Contract specifies > 50,000 for production — adjust to match your data volume
 
 
 -- ============================================================================

@@ -12,6 +12,7 @@
 --
 -- ============================================================================
 
+-- NOTE: Replace ACCOUNTADMIN with a least-privilege role in production
 USE ROLE ACCOUNTADMIN;
 USE DATABASE RETAIL_BANKING_DB;
 USE SCHEMA DATA_PRODUCTS;

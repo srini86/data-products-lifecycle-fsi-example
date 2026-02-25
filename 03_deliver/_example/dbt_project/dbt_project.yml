@@ -1,7 +1,8 @@
 name: 'retail_churn_risk'
 version: '1.0.0'
+config-version: 2
 
-profile: 'retail_churn_risk'
+profile: 'snowflake_demo'
 
 model-paths: ["models"]
 analysis-paths: ["analyses"]
@@ -13,3 +14,13 @@ snapshot-paths: ["snapshots"]
 clean-targets:
   - "target"
   - "dbt_packages"
+
+vars:
+  database: 'RETAIL_BANKING_DB'
+  schema: 'DATA_PRODUCTS'
+  raw_schema: 'RAW'
+
+models:
+  retail_churn_risk:
+    +materialized: table
+    +tags: ['churn', 'risk', 'retention']

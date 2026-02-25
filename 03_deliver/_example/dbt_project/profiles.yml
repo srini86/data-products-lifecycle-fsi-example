@@ -1,0 +1,14 @@
+# Snowflake-native dbt profile
+# Authentication is handled by Snowflake - no password/authenticator needed
+snowflake_demo:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "<YOUR_SNOWFLAKE_ACCOUNT>"   # e.g. xy12345.us-east-1
+      user: "<YOUR_USER>"                   # e.g. JSMITH
+      role: ACCOUNTADMIN                    # Replace with least-privilege role in production
+      database: RETAIL_BANKING_DB
+      warehouse: DATA_PRODUCTS_WH
+      schema: DATA_PRODUCTS
+      threads: 4

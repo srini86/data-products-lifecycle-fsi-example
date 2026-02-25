@@ -9,6 +9,7 @@
 -- Docs: https://docs.snowflake.com/en/user-guide/views-semantic
 -- ============================================================================
 
+-- NOTE: Replace ACCOUNTADMIN with a least-privilege role in production
 USE ROLE ACCOUNTADMIN;
 USE DATABASE RETAIL_BANKING_DB;
 USE SCHEMA DATA_PRODUCTS;
