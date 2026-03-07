@@ -5,7 +5,6 @@
 -- 1. A Semantic View for Cortex Analyst (natural language queries)
 -- 2. An Internal Marketplace listing for discovery and access
 --
--- Reference: https://docs.snowflake.com/en/user-guide/views-semantic
 -- Docs: https://docs.snowflake.com/en/user-guide/views-semantic
 -- ============================================================================
 
