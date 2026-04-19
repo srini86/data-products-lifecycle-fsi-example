@@ -75,8 +75,6 @@ The skill detects where you are in the lifecycle, displays a tracker, and guides
 
 Use the default prompts (type a step number) or describe your own goal (e.g. `Deliver: create dbt model`).
 
-Full skill reference: [`.cortex/guides/DATA_PRODUCT_PLAYBOOK.md`](.cortex/guides/DATA_PRODUCT_PLAYBOOK.md)
-
 ### Cleanup
 
 - Run `06_cleanup/cleanup.sql` in Snowsight to remove all demo resources
@@ -87,11 +85,8 @@ Full skill reference: [`.cortex/guides/DATA_PRODUCT_PLAYBOOK.md`](.cortex/guides
 
 ```
 .cortex/
-  ├── skills/
-  │     └── dplc-accelerator/        # Lifecycle tracker skill — start here
-  └── guides/                        # CoCo guides & prompts
-        ├── DATA_PRODUCT_PLAYBOOK.md
-        └── TODO.md
+  └── skills/
+        └── dplc-accelerator/        # Lifecycle tracker skill — start here
 00_setup/                              # Setup script + lifecycle diagram
 01_discover/                           # Data product canvas
 02_design/
