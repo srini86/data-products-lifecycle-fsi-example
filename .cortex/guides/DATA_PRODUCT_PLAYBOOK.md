@@ -1,5 +1,7 @@
 # Data Product Playbook — Quick Reference
 
+> Entry point: `$dplc-accelerator` — launches the lifecycle tracker and guides you through each phase with ready-to-run CoCo prompts.
+>
 > Contract-driven lifecycle for governed data products on Snowflake.
 > Standing rules: see `prompt.md` at the project root.
 > Skill definitions: `.cortex/skills/` (project-level, auto-loaded by Cortex Code).

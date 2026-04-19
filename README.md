@@ -6,6 +6,18 @@ Build a production-ready **Retail Customer Churn Risk** data product on Snowflak
 
 ---
 
+## Quick Start
+
+Open Cortex Code (CoCo) in this directory and type:
+
+```
+$dplc-accelerator
+```
+
+The skill launches a lifecycle tracker and guides you through every phase — Discover → Design → Deliver → Operate → Refine — with ready-to-run CoCo prompts at each step.
+
+---
+
 ## Data Product Lifecycle
 
 <p align="center">
@@ -22,51 +34,6 @@ Build a production-ready **Retail Customer Churn Risk** data product on Snowflak
 
 ---
 
-## Architecture: LLM vs Agent
-
-This repo provides two approaches. Both start from the same data contract and produce the same table.
-
-**Streamlit — LLM (single-pass)**
-
-```
-Contract YAML ──► Cortex LLM ──► Generated SQL
-                  (one prompt)    schema.yml      ──► Manual deploy
-                                  masking.sql          via Snowsight
-                                  dmf_setup.sql
-```
-
-**Cortex Code — Agent (multi-skill orchestration)**
-
-```
-Contract YAML ──► Cortex Code Agent
-                       │
-                  ┌────┴────────────────────────┐
-                  │         7 Skills             │
-                  │  ┌─────────┐  ┌───────────┐ │
-                  │  │model-sql│  │ schema-yml│ │     prompt.md
-                  │  │  (AI)   │  │ (template)│ │    (guardrails)
-                  │  └─────────┘  └───────────┘ │        │
-                  │  ┌─────────┐  ┌───────────┐ │        ▼
-                  │  │masking  │  │ dmf-setup │ │   Plan ► Generate
-                  │  │(template│  │ (template)│ │   ► Validate ► Deploy
-                  │  └─────────┘  └───────────┘ │   ► Test ► Learn
-                  │  ┌─────────┐  ┌───────────┐ │        │
-                  │  │test-gen │  │ deployer  │ │        ▼
-                  │  │(template│  │ (snow CLI)│ │   Error Playbook
-                  │  └─────────┘  └───────────┘ │  (lessons persist)
-                  └─────────────────────────────┘
-```
-
-| | **Streamlit (LLM)** | **Cortex Code (Agent)** |
-|---|---|---|
-| **Invocations** | 1 prompt → 1 response | N skills → N artifacts, iteratively |
-| **AI usage** | LLM generates SQL; templates handle rest | LLM generates SQL only; templates handle 6 of 7 |
-| **Memory** | Stateless | `prompt.md` + Error Playbook persist across sessions |
-| **Governance** | Implicit in app code | Explicit in `prompt.md` (forbidden patterns, naming rules) |
-| **Iteration** | Re-run entire generation | Re-run individual skill |
-
----
-
 ## How to Use This Repo
 
 ### Step 1: Setup Environment
@@ -77,8 +44,7 @@ Contract YAML ──► Cortex Code Agent
   ```
 - Open `00_setup/setup.sql` in Snowsight
 - Run Steps 1–4 to create database, schemas, and sample data
-- Run Step 5 to create the Streamlit app (only needed for 3a)
-- Run Step 6 to verify all assets
+- Run Step 5 to verify all assets
 
 ### Step 2: Design Your Data Contract
 
@@ -91,39 +57,28 @@ Contract YAML ──► Cortex Code Agent
 - The contract defines schema, quality rules, masking policies, and SLAs
 - It is the **single input** that drives all code generation in Step 3
 
-### Step 3: Generate & Deploy Data Product
+### Step 3: Deliver with Cortex Code
 
-Choose **3a** or **3b**:
+Start Cortex Code in the repo directory — the `$dplc-accelerator` skill guides you through each prompt interactively:
 
-#### Step 3a: Streamlit App
+```bash
+cortex
+```
 
-- Open Snowsight → Projects → Streamlit → `dbt_code_generator`
-- Paste the contract YAML or load from stage
-- Click **Generate All Outputs** — produces:
-  - `retail_customer_churn_risk.sql` (dbt model)
-  - `schema.yml` (tests + docs)
-  - `masking_policies.sql`
-- Create a dbt Project in Snowsight → add model + schema → Compile → Run
-- Run `masking_policies.sql` in a worksheet
-- Run `03_deliver/_example/02_data_quality_dmf.sql` for DMF setup
-- Run `03_deliver/_example/03_semantic_view_marketplace.sql` for semantic view
-- Sample outputs: `03_deliver/_example/`
+Then type `$dplc-accelerator` to launch the lifecycle tracker. The skill presents these five prompts in sequence:
 
-#### Step 3b: Cortex Code
+1. `"Read the data contract at 02_design/retail_customer_churn_risk_contract.yaml and generate a complete dbt project — model SQL, schema.yml, and tests"`
+2. `"Generate masking policies and DMF setup SQL based on the governance rules in the contract"`
+3. `"Generate monitoring and observability SQL — freshness SLAs, quality checks, usage tracking, and alerts"`
+4. `"Deploy the dbt project to Snowflake using snow dbt deploy and run it"`
+5. `"Validate the deployment — run tests, check row counts, verify masking is applied"`
 
-- Start Cortex Code in the repo directory — skills auto-load from `.cortex/skills/`
-- Use these prompts to walk through the lifecycle:
-  1. `"Read the data contract at 02_design/_example/churn_risk_data_contract.yaml and generate a complete dbt project — model SQL, schema.yml, and tests"`
-  2. `"Generate masking policies and DMF setup SQL based on the governance rules in the contract"`
-  3. `"Generate monitoring and observability SQL — freshness SLAs, quality checks, usage tracking, and alerts"`
-  4. `"Deploy the dbt project to Snowflake using snow dbt deploy and run it"`
-  5. `"Validate the deployment — run tests, check row counts, verify masking is applied"`
-- Full playbook: [`.cortex/guides/DATA_PRODUCT_PLAYBOOK.md`](.cortex/guides/DATA_PRODUCT_PLAYBOOK.md) — covers skills architecture, guardrails, and error playbook
+Full playbook: [`.cortex/guides/DATA_PRODUCT_PLAYBOOK.md`](.cortex/guides/DATA_PRODUCT_PLAYBOOK.md) — covers skills architecture, guardrails, and error playbook.
 
 ### Step 4: Operate & Monitor
 
-- If you used **Step 3a**, run `04_operate/_example/monitoring_observability.sql` manually in Snowsight
-- If you used **Step 3b**, monitoring was generated in prompt 3 above
+- Monitoring SQL was generated in Prompt 3 above and deployed as part of Prompt 4
+- Run `04_operate/_example/monitoring_observability.sql` in Snowsight to review or re-run independently
 - What it covers:
   - Freshness SLAs and availability
   - Quality expectation status and masking verification
@@ -144,8 +99,9 @@ Choose **3a** or **3b**:
 
 ```
 .cortex/
-  ├── skills/capture-feedback/         # CoCo feedback skill
-  └── guides/                          # CoCo guides & prompts
+  ├── skills/
+  │     └── dplc-accelerator/        # Lifecycle tracker skill — start here
+  └── guides/                        # CoCo guides & prompts
         ├── DATA_PRODUCT_PLAYBOOK.md
         └── TODO.md
 00_setup/                              # Setup script + lifecycle diagram
@@ -153,20 +109,12 @@ Choose **3a** or **3b**:
 02_design/
   ├── README.md                        # Phase guide
   ├── data_contract_informs.png        # Contract-driven architecture diagram
-  └── _example/                        # FSI churn-risk example
-        └── churn_risk_data_contract.yaml
+  └── retail_customer_churn_risk_contract.yaml  # FSI churn-risk example contract
 03_deliver/
-  ├── README.md                        # Phase guide
-  ├── 01_code_generator_service.py     # Streamlit code generator app
+  ├── dbt_project/                     # Complete dbt project (model, schema, tests)
+  ├── masking_policies.sql             # PII masking policy DDL
   ├── code_generation_flow.png
-  ├── cortex_code_skills_flow.png
-  └── _example/                        # FSI churn-risk generated outputs
-        ├── dbt_project/               # Complete dbt project
-        ├── masking_policies.sql
-        ├── dmf_setup.sql
-        ├── 02_data_quality_dmf.sql
-        ├── 03_semantic_view_marketplace.sql
-        └── validate_deployment.sql
+  └── cortex_code_skills_flow.png
 04_operate/
   ├── README.md                        # Phase guide
   ├── raci_template.md                 # Reusable RACI template
