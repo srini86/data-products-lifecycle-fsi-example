@@ -11,7 +11,7 @@ Build a production-ready **Retail Customer Churn Risk** data product on Snowflak
 Two steps to go from zero to a governed, deployed data product:
 
 1. **SETUP** — run `00_setup/setup.sql` in Snowsight to create the database, schemas, and sample data
-2. **START DPLC** — open Cortex Code in this directory and type `$dplc-accelerator`
+2. **START DPLC** (Data Product Lifecycle) — open Cortex Code in this directory and type `$dplc-accelerator`
 
 CoCo takes it from there — Discover → Design → Deliver → Operate → Refine, guided step by step.
 
@@ -45,7 +45,7 @@ CoCo takes it from there — Discover → Design → Deliver → Operate → Ref
 - Open `00_setup/setup.sql` in Snowsight and run Steps 1–4 to create the database, schemas, warehouse, and load sample data
 - Run Step 5 to verify all source tables are present
 
-### Step 2: START DPLC
+### Step 2: START DPLC (Data Product Lifecycle)
 
 Start Cortex Code in the repo directory:
 
