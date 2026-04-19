@@ -1,23 +1,17 @@
 # Data Product Playbook — Quick Reference
 
-> Entry point: `$dplc-accelerator` — launches the lifecycle tracker and guides you through each phase with ready-to-run CoCo prompts.
->
-> Contract-driven lifecycle for governed data products on Snowflake.
-> Standing rules: see `prompt.md` at the project root.
-> Skill definitions: `.cortex/skills/` (project-level, auto-loaded by Cortex Code).
+> Start with `$dplc-accelerator` — the skill guides you through every phase with ready-to-run prompts.
 
 ## Lifecycle Phases
 
 | Phase | Folder | Key Action | Skill(s) |
 |-------|--------|------------|----------|
-| 0. Setup | `00_setup/` | Create DB, schemas, warehouse, sample data | — (run `setup.sql`) |
-| 1. Discover | `01_discover/` | Read Data Product Canvas, confirm with user | `$contract-generator` |
-| 2. Design | `02_design/` | Generate ODCS v2.2 contract YAML | `$contract-generator`, `$contract-verifier` |
-| 3. Deliver | `03_deliver/` | Generate all dbt + governance artifacts | `$data-product-generator` (orchestrates all below) |
-| 4. Deploy | — | `dbt run` + `dbt test` via Snowflake-native dbt | — |
-| 5. Validate | — | Run quality gates from contract | `$contract-verifier` |
-| 6. Operate | `04_operate/` | Monitoring, alerting, RACI | — (run `monitoring_observability.sql`) |
-| 7. Cleanup | `06_cleanup/` | Tear down demo resources | — (run `cleanup.sql`) |
+| 0. Setup | `00_setup/` | Create DB, schemas, warehouse, and sample data | — (run `setup.sql` in Snowsight) |
+| 1. Discover | `01_discover/` | Review Data Product Canvas, confirm requirements | — |
+| 2. Design | `02_design/` | Generate and verify ODCS v2.2 contract YAML | `$contract-generator`, `$contract-verifier` |
+| 3. Deliver | `03_deliver/` | Generate all dbt + governance artifacts, deploy, validate | `$data-product-generator` (orchestrates all below) |
+| 4. Operate | `04_operate/` | SLA monitoring, quality gates, usage tracking | — (run `monitoring_observability.sql`) |
+| 5. Refine | `05_refine/` | Evolve contract, regenerate affected artifacts | `$contract-verifier`, `$data-product-generator` |
 
 ## Deliver Phase — Artifact Generation Order
 
@@ -34,12 +28,12 @@
 
 - Contract YAML is the **single source of truth** — all artifacts derive from it
 - **Verify with the user** before creating/dropping Snowflake objects or moving phases
-- **Quality gates must pass** before marking a phase complete (see `prompt.md`)
+- **Quality gates must pass** before marking a phase complete
 - Track progress via `cortex ctx task` / `cortex ctx step`
 
-## Evolution (Phase 5: Refine)
+## Refine (Phase 5)
 
 When adding columns or changing logic:
 1. Update the contract YAML first (bump version)
-2. Regenerate affected artifacts using the relevant `$skill`
+2. Regenerate only the affected artifacts using the relevant `$skill`
 3. Re-run quality gates
