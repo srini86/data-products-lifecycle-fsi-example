@@ -8,13 +8,12 @@ Build a production-ready **Retail Customer Churn Risk** data product on Snowflak
 
 ## Quick Start
 
-Open Cortex Code (CoCo) in this directory and type:
+Two steps to go from zero to a governed, deployed data product:
 
-```
-$dplc-accelerator
-```
+1. **SETUP** — run `00_setup/setup.sql` in Snowsight to create the database, schemas, and sample data
+2. **START DPLC** — open Cortex Code in this directory and type `$dplc-accelerator`
 
-The skill launches a lifecycle tracker and guides you through every phase — Discover → Design → Deliver → Operate → Refine — with ready-to-run CoCo prompts at each step.
+CoCo takes it from there — Discover → Design → Deliver → Operate → Refine, guided step by step.
 
 ---
 
@@ -36,62 +35,47 @@ The skill launches a lifecycle tracker and guides you through every phase — Di
 
 ## How to Use This Repo
 
-### Step 1: Setup Environment
+### Step 1: SETUP
 
 - Clone the repo:
   ```bash
   git clone https://github.com/srini86/data-products-lifecycle-fsi-example
+  cd data-products-lifecycle-fsi-example
   ```
-- Open `00_setup/setup.sql` in Snowsight
-- Run Steps 1–4 to create database, schemas, and sample data
-- Run Step 5 to verify all assets
+- Open `00_setup/setup.sql` in Snowsight and run Steps 1–4 to create the database, schemas, warehouse, and load sample data
+- Run Step 5 to verify all source tables are present
 
-### Step 2: Design Your Data Contract
+### Step 2: START DPLC
 
-- An example contract is provided at `02_design/_example/churn_risk_data_contract.yaml` — use it as a reference
-- To create your own, provide CoCo with your Data Product Canvas (or requirements) and ask it to generate a contract:
-  ```
-  "Generate an ODCS v2.2 data contract for <your data product>. 
-   Use 02_design/_example/churn_risk_data_contract.yaml as a reference for structure."
-  ```
-- The contract defines schema, quality rules, masking policies, and SLAs
-- It is the **single input** that drives all code generation in Step 3
-
-### Step 3: Deliver with Cortex Code
-
-Start Cortex Code in the repo directory — the `$dplc-accelerator` skill guides you through each prompt interactively:
+Start Cortex Code in the repo directory:
 
 ```bash
 cortex
 ```
 
-Then type `$dplc-accelerator` to launch the lifecycle tracker. The skill presents these five prompts in sequence:
+Then type:
 
-1. `"Read the data contract at 02_design/retail_customer_churn_risk_contract.yaml and generate a complete dbt project — model SQL, schema.yml, and tests"`
-2. `"Generate masking policies and DMF setup SQL based on the governance rules in the contract"`
-3. `"Generate monitoring and observability SQL — freshness SLAs, quality checks, usage tracking, and alerts"`
-4. `"Deploy the dbt project to Snowflake using snow dbt deploy and run it"`
-5. `"Validate the deployment — run tests, check row counts, verify masking is applied"`
+```
+$dplc-accelerator
+```
 
-Full playbook: [`.cortex/guides/DATA_PRODUCT_PLAYBOOK.md`](.cortex/guides/DATA_PRODUCT_PLAYBOOK.md) — covers skills architecture, guardrails, and error playbook.
+The skill detects where you are in the lifecycle, displays a tracker, and guides you through each phase with ready-to-run prompts:
 
-### Step 4: Operate & Monitor
+| Phase | What to expect |
+|-------|----------------|
+| **Discover** | Canvas walkthrough — requirements confirmed, ambiguities flagged before you write a line of code |
+| **Design** | ODCS v2.2 contract YAML generated and verified against your actual Snowflake source tables |
+| **Deliver** | dbt model SQL, schema tests, masking policies, DMF quality checks — deployed and validated end-to-end |
+| **Operate** | Freshness SLA status, quality gate PASS/FAIL per rule, and top consumers by role — live monitoring confirmed |
+| **Refine** | v1→v2 contract diff, schema evolution SQL, regenerated artifacts — quality gates re-run and passing |
 
-- Monitoring SQL was generated in Prompt 3 above and deployed as part of Prompt 4
-- Run `04_operate/_example/monitoring_observability.sql` in Snowsight to review or re-run independently
-- What it covers:
-  - Freshness SLAs and availability
-  - Quality expectation status and masking verification
-  - Usage by role/user and query patterns
+Use the default prompts (type a step number) or describe your own goal (e.g. `Deliver: create dbt model`).
 
-### Step 5: Refine & Evolve
-
-- See `05_refine/_example/churn_risk_data_contract_v2.yaml` for an evolved contract (adds CLV, vulnerability indicator)
-- Run `05_refine/_example/evolution_example.sql` for schema evolution patterns
+Full skill reference: [`.cortex/guides/DATA_PRODUCT_PLAYBOOK.md`](.cortex/guides/DATA_PRODUCT_PLAYBOOK.md)
 
 ### Cleanup
 
-- Run `06_cleanup/cleanup.sql` to remove all demo resources
+- Run `06_cleanup/cleanup.sql` in Snowsight to remove all demo resources
 
 ---
 
