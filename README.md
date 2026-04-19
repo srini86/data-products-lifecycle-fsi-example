@@ -4,6 +4,10 @@ Build a production-ready **Retail Customer Churn Risk** data product on Snowflak
 
 📝 **Blog Post:** [Building Enterprise Grade Data Products for FSI — Moving from Strategy to Tactics](https://datadonutz.medium.com/building-regulatory-grade-data-products-on-snowflake-for-fsi-938895e25e35)
 
+<p align="center">
+  <img src="coco-demo.gif" alt="Cortex Code lifecycle demo" width="700"/>
+</p>
+
 ---
 
 ## Quick Start
