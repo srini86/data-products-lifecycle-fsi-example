@@ -97,10 +97,10 @@ FROM RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK;
 -- 2a. Overall expectation status (are contract quality rules passing?)
 SELECT 
     expectation_name,
-    CASE status 
-        WHEN 'PASSED' THEN '✅ PASSED'
-        WHEN 'FAILED' THEN '❌ FAILED'
-        ELSE '⚠️ ' || status
+    CASE EXPECTATION_VIOLATED
+        WHEN FALSE THEN '✅ PASSED'
+        WHEN TRUE  THEN '❌ FAILED'
+        ELSE '⚠️ UNKNOWN'
     END AS status,
     metric_name,
     metric_value,
@@ -131,13 +131,13 @@ ORDER BY metric_name;
 SELECT 
     DATE(measurement_time) AS date,
     expectation_name,
-    status,
+    EXPECTATION_VIOLATED,
     metric_value,
     COUNT(*) AS occurrence_count
 FROM SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_EXPECTATION_STATUS
 WHERE table_name = 'RETAIL_CUSTOMER_CHURN_RISK'
-  AND status = 'FAILED'
-GROUP BY DATE(measurement_time), expectation_name, status, metric_value
+  AND EXPECTATION_VIOLATED = TRUE
+GROUP BY DATE(measurement_time), expectation_name, EXPECTATION_VIOLATED, metric_value
 ORDER BY date DESC, expectation_name;
 
 
@@ -300,7 +300,7 @@ CREATE OR REPLACE ALERT MONITORING.quality_expectation_alert
         SELECT 1 
         FROM SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_EXPECTATION_STATUS
         WHERE table_name = 'RETAIL_CUSTOMER_CHURN_RISK'
-          AND status = 'FAILED'
+          AND EXPECTATION_VIOLATED = TRUE
           AND measurement_time > DATEADD('hour', -1, CURRENT_TIMESTAMP())
     ))
     THEN
@@ -362,7 +362,7 @@ WITH freshness AS (
 ),
 quality AS (
     SELECT 
-        COUNT(CASE WHEN status = 'FAILED' THEN 1 END) AS failed_expectations,
+        COUNT(CASE WHEN EXPECTATION_VIOLATED = TRUE THEN 1 END) AS failed_expectations,
         COUNT(*) AS total_expectations
     FROM SNOWFLAKE.LOCAL.DATA_QUALITY_MONITORING_EXPECTATION_STATUS
     WHERE table_name = 'RETAIL_CUSTOMER_CHURN_RISK'

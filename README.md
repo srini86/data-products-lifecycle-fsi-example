@@ -86,16 +86,22 @@ Use the default prompts (type a step number) or describe your own goal (e.g. `De
 ```
 .cortex/
   └── skills/
-        └── dplc-accelerator/        # Lifecycle tracker skill — start here
+        ├── dplc-accelerator/        # Lifecycle tracker skill — start here
+        ├── contract-generator/      # Generate ODCS v2.2 contracts
+        ├── contract-verifier/       # Verify contract against Snowflake tables
+        └── data-product-generator/ # Generate dbt model, tests, governance SQL
 00_setup/                              # Setup script + lifecycle diagram
 01_discover/                           # Data product canvas
 02_design/
   ├── README.md                        # Phase guide
   ├── data_contract_informs.png        # Contract-driven architecture diagram
-  └── retail_customer_churn_risk_contract.yaml  # FSI churn-risk example contract
+  └── _example/
+        └── churn_risk_data_contract.yaml  # FSI churn-risk reference contract
 03_deliver/
-  ├── dbt_project/                     # Complete dbt project (model, schema, tests)
-  ├── masking_policies.sql             # PII masking policy DDL
+  ├── _example/
+  │   ├── dbt_project/               # Reference dbt project (model, schema, tests)
+  │   ├── masking_policies.sql       # Reference masking policy DDL
+  │   └── dmf_setup.sql              # Reference DMF quality checks DDL
   ├── code_generation_flow.png
   └── cortex_code_skills_flow.png
 04_operate/
@@ -111,6 +117,8 @@ Use the default prompts (type a step number) or describe your own goal (e.g. `De
 06_cleanup/                            # Cleanup script
 prompt.md                              # CoCo standing rules (auto-read at session start)
 ```
+
+> **`_example/` convention:** Every phase folder contains an `_example/` sub-folder with ready-made reference artifacts. Clone the repo and use them as-is, or generate your own via CoCo prompts. The lifecycle tracker advances only when you have created your own artifact at the expected path (outside `_example/`).
 
 ---
 

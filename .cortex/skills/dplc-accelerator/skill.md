@@ -132,7 +132,7 @@ Summarise this Data Product Canvas:
 **Step 2a — Review the example contract:**
 
 ```
-#02_design/retail_customer_churn_risk_contract.yaml
+#02_design/_example/churn_risk_data_contract.yaml
 Summarise this data contract:
 - Schema (column count, key output fields, PII fields)
 - Quality rules (completeness, range, freshness SLA)
@@ -141,13 +141,15 @@ Summarise this data contract:
 Confirm all upstream tables exist in Snowflake before we proceed to Deliver.
 ```
 
+> **Before advancing Phase 2:** Copy `02_design/_example/churn_risk_data_contract.yaml` to `02_design/<product_name>_contract.yaml` and adapt it, OR generate your own via Step 2b. The tracker advances once your contract exists at `02_design/<product_name>_contract.yaml`.
+
 **Step 2b — (Optional) Generate your own contract from the canvas:**
 
 ```
 $contract-generator
 #01_discover/data_product_canvas.png
 Generate an ODCS v2.2 data contract from this canvas.
-Use 02_design/retail_customer_churn_risk_contract.yaml as the structure reference.
+Use 02_design/_example/churn_risk_data_contract.yaml as the structure reference.
 Save to 02_design/<product_name>_contract.yaml
 ```
 
@@ -166,10 +168,17 @@ Save to 02_design/<product_name>_contract.yaml
 **Prompt 1 — Generate the dbt project:**
 
 ```
-#02_design/retail_customer_churn_risk_contract.yaml
-Read this data contract and generate a complete dbt project —
-model SQL, schema.yml, and tests.
-Save all files to 03_deliver/dbt_project/models/
+#02_design/<product_name>_contract.yaml
+Read this data contract and generate a complete dbt project:
+1. If 03_deliver/dbt_project/dbt_project.yml does not exist, copy
+   03_deliver/_example/dbt_project/dbt_project.yml and profiles.yml
+   into 03_deliver/dbt_project/ as the project scaffold.
+2. Generate the dbt model SQL and schema.yml from the contract.
+   Save to 03_deliver/dbt_project/models/
+3. Generate test files matching the contract's quality rules.
+   Save to 03_deliver/dbt_project/tests/
+Note: use one ALTER TABLE ... ADD COLUMN statement per column
+(Snowflake does not support comma-separated ADD COLUMN IF NOT EXISTS).
 ```
 
 > **Review checkpoint:** Verify the join logic in the model SQL matches the upstream tables in the contract. Confirm the churn score derivation formula aligns with the contract's `derivation` field.
