@@ -6,3 +6,24 @@ logs/
 __pycache__/
 .env
 .user.yml
+
+# User-generated lifecycle artifacts (created by CoCo during the guided workflow)
+02_design/*_contract.yaml
+!02_design/_example/
+03_deliver/dbt_project/
+03_deliver/masking_policies.sql
+03_deliver/dmf_setup.sql
+04_operate/monitoring_observability.sql
+05_refine/*_contract_v2.yaml
+!05_refine/_example/
+
+# Session and demo files
+SESSION_LOG.md
+TODO.md
+demo/
+00_setup/QUICK_FIXES_SUMMARY.md
+00_setup/configure_mfa_reduction.sh
+00_setup/run_with_snowflake_creds.sh
+00_setup/update_todo.sh
+03_deliver/.streamlit/
+01_discover/*.pdf

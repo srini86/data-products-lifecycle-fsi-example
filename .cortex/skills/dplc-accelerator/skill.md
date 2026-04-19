@@ -12,8 +12,8 @@
 | 1. Discover | `01_discover/data_product_canvas.png` |
 | 2. Design | `02_design/retail_customer_churn_risk_contract.yaml` |
 | 3. Deliver | `03_deliver/dbt_project/models/retail_customer_churn_risk.sql` |
-| 4. Operate | `04_operate/_example/monitoring_observability.sql` |
-| 5. Refine | `05_refine/_example/churn_risk_data_contract_v2.yaml` |
+| 4. Operate | `04_operate/monitoring_observability.sql` |
+| 5. Refine | `05_refine/churn_risk_data_contract_v2.yaml` |
 
 Mark each phase:
 - `[✓]` — file exists (artifacts in place)
@@ -197,10 +197,10 @@ Save to 03_deliver/masking_policies.sql and 03_deliver/dmf_setup.sql
 **Prompt 3 — Generate monitoring SQL:**
 
 ```
-#02_design/retail_customer_churn_risk_contract.yaml
+#02_design/<product_name>_contract.yaml
 Generate monitoring and observability SQL — freshness SLAs,
 quality checks, usage tracking, and alerts.
-Save to 04_operate/_example/monitoring_observability.sql
+Save to 04_operate/monitoring_observability.sql
 ```
 
 > **Review checkpoint:** Confirm the freshness threshold in the generated SQL matches `sla.max_acceptable_lag_hours` from the contract.
@@ -242,13 +242,15 @@ Report any test failures with remediation steps.
 **Step 4a — Run monitoring:**
 
 ```
-#04_operate/_example/monitoring_observability.sql
+#04_operate/monitoring_observability.sql
 Run this monitoring SQL and report:
 1. Freshness SLA status for RETAIL_CUSTOMER_CHURN_RISK
    (is it within the 24-hour SLA from the contract?)
 2. Quality gate results — PASS/FAIL per DMF rule
 3. Top consumers over the last 7 days (role, user, query count)
 ```
+
+> **Note:** If `04_operate/monitoring_observability.sql` doesn't exist yet, run Phase 3 Prompt 3 first, or copy from `04_operate/_example/monitoring_observability.sql` as a starting point.
 
 **Step 4b — Review RACI (optional):**
 
@@ -280,6 +282,8 @@ Compare v1 and v2. List:
 - Any breaking changes that require migration SQL (ALTER TABLE)
 ```
 
+> Once you have saved your updated v2 contract to `05_refine/churn_risk_data_contract_v2.yaml`, the tracker will advance Phase 5 to `[✓]`.
+
 **Step 5b — Run schema evolution SQL:**
 
 ```
@@ -291,7 +295,7 @@ Confirm the ALTER TABLE adds the new columns without breaking existing consumers
 **Step 5c — Regenerate only affected artifacts:**
 
 ```
-#05_refine/_example/churn_risk_data_contract_v2.yaml
+#05_refine/churn_risk_data_contract_v2.yaml
 The data contract has been updated to v2 with two new columns
 (customer_lifetime_value, financial_vulnerability_indicator).
 Regenerate the dbt model, masking policies, and DMF setup
