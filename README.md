@@ -19,6 +19,10 @@ Two steps to go from zero to a governed, deployed data product:
 
 CoCo takes it from there — Discover → Design → Deliver → Operate → Refine, guided step by step.
 
+<p align="center">
+  <img src="assets/lifecycle-tracker.png" alt="Lifecycle tracker" width="600"/>
+</p>
+
 ---
 
 ## Data Product Lifecycle
