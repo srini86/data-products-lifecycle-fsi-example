@@ -78,6 +78,10 @@ Then type:
 $dplc-accelerator
 ```
 
+<p align="center">
+  <img src="00_setup/lifecycle-tracker.png" alt="Lifecycle tracker" width="600"/>
+</p>
+
 The skill detects where you are in the lifecycle, displays a tracker, and guides you through each phase with ready-to-run prompts:
 
 | Phase | What to expect |
@@ -89,10 +93,6 @@ The skill detects where you are in the lifecycle, displays a tracker, and guides
 | **Refine** | v1→v2 contract diff, schema evolution SQL, regenerated artifacts — quality gates re-run and passing |
 
 Use the default prompts (type a step number) or describe your own goal (e.g. `Deliver: create dbt model`).
-
-<p align="center">
-  <img src="00_setup/lifecycle-tracker.png" alt="Lifecycle tracker" width="600"/>
-</p>
 
 ### Cleanup
 
