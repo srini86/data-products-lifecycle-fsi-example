@@ -5,7 +5,7 @@ Build a production-ready **Retail Customer Churn Risk** data product on Snowflak
 📝 **Blog Post:** [Building Enterprise Grade Data Products for FSI — Moving from Strategy to Tactics](https://datadonutz.medium.com/building-regulatory-grade-data-products-on-snowflake-for-fsi-938895e25e35)
 
 <p align="center">
-  <img src="coco-demo.gif" alt="Cortex Code lifecycle demo" width="700"/>
+  <img src="assets/coco-demo.gif" alt="Cortex Code lifecycle demo" width="700"/>
 </p>
 
 ---
@@ -28,7 +28,7 @@ CoCo takes it from there — Discover → Design → Deliver → Operate → Ref
 ## Data Product Lifecycle
 
 <p align="center">
-  <img src="00_setup/data-product-lifecycle.png" alt="Data Product Lifecycle" width="700"/>
+  <img src="assets/data-product-lifecycle.png" alt="Data Product Lifecycle" width="700"/>
 </p>
 
 | Stage | What Happens | Folder |
@@ -109,20 +109,18 @@ Use the default prompts (type a step number) or describe your own goal (e.g. `De
         ├── contract-generator/      # Generate ODCS v2.2 contracts
         ├── contract-verifier/       # Verify contract against Snowflake tables
         └── data-product-generator/ # Generate dbt model, tests, governance SQL
-00_setup/                              # Setup script + lifecycle diagram
+assets/                                # All diagrams and screenshots
+00_setup/                              # Setup script
 01_discover/                           # Data product canvas
 02_design/
   ├── README.md                        # Phase guide
-  ├── data_contract_informs.png        # Contract-driven architecture diagram
   └── _example/
         └── churn_risk_data_contract.yaml  # FSI churn-risk reference contract
 03_deliver/
-  ├── _example/
-  │   ├── dbt_project/               # Reference dbt project (model, schema, tests)
-  │   ├── masking_policies.sql       # Reference masking policy DDL
-  │   └── dmf_setup.sql              # Reference DMF quality checks DDL
-  ├── code_generation_flow.png
-  └── cortex_code_skills_flow.png
+  └── _example/
+      ├── dbt_project/               # Reference dbt project (model, schema, tests)
+      ├── masking_policies.sql       # Reference masking policy DDL
+      └── dmf_setup.sql              # Reference DMF quality checks DDL
 04_operate/
   ├── README.md                        # Phase guide
   ├── raci_template.md                 # Reusable RACI template
