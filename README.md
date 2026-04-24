@@ -5,7 +5,7 @@ Build a production-ready **Retail Customer Churn Risk** data product on Snowflak
 📝 **Blog Post:** [Building Enterprise Grade Data Products for FSI — Moving from Strategy to Tactics](https://datadonutz.medium.com/building-regulatory-grade-data-products-on-snowflake-for-fsi-938895e25e35)
 
 <p align="center">
-  <img src="assets/coco-demo.gif" alt="Cortex Code lifecycle demo" width="700"/>
+  <img src="00_setup/coco-demo.gif" alt="Cortex Code lifecycle demo" width="700"/>
 </p>
 
 ---
@@ -20,7 +20,7 @@ Two steps to go from zero to a governed, deployed data product:
 CoCo takes it from there — Discover → Design → Deliver → Operate → Refine, guided step by step.
 
 <p align="center">
-  <img src="assets/lifecycle-tracker.png" alt="Lifecycle tracker" width="600"/>
+  <img src="00_setup/lifecycle-tracker.png" alt="Lifecycle tracker" width="600"/>
 </p>
 
 ---
@@ -28,7 +28,7 @@ CoCo takes it from there — Discover → Design → Deliver → Operate → Ref
 ## Data Product Lifecycle
 
 <p align="center">
-  <img src="assets/data-product-lifecycle.png" alt="Data Product Lifecycle" width="700"/>
+  <img src="00_setup/data-product-lifecycle.png" alt="Data Product Lifecycle" width="700"/>
 </p>
 
 | Stage | What Happens | Folder |
@@ -109,8 +109,7 @@ Use the default prompts (type a step number) or describe your own goal (e.g. `De
         ├── contract-generator/      # Generate ODCS v2.2 contracts
         ├── contract-verifier/       # Verify contract against Snowflake tables
         └── data-product-generator/ # Generate dbt model, tests, governance SQL
-assets/                                # All diagrams and screenshots
-00_setup/                              # Setup script
+00_setup/                              # Setup script + all images and diagrams
 01_discover/                           # Data product canvas
 02_design/
   ├── README.md                        # Phase guide
