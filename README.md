@@ -19,10 +19,6 @@ Two steps to go from zero to a governed, deployed data product:
 
 CoCo takes it from there — Discover → Design → Deliver → Operate → Refine, guided step by step.
 
-<p align="center">
-  <img src="00_setup/lifecycle-tracker.png" alt="Lifecycle tracker" width="600"/>
-</p>
-
 ---
 
 ## Data Product Lifecycle
@@ -93,6 +89,10 @@ The skill detects where you are in the lifecycle, displays a tracker, and guides
 | **Refine** | v1→v2 contract diff, schema evolution SQL, regenerated artifacts — quality gates re-run and passing |
 
 Use the default prompts (type a step number) or describe your own goal (e.g. `Deliver: create dbt model`).
+
+<p align="center">
+  <img src="00_setup/lifecycle-tracker.png" alt="Lifecycle tracker" width="600"/>
+</p>
 
 ### Cleanup
 
