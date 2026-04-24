@@ -186,7 +186,7 @@ Note: use one ALTER TABLE ... ADD COLUMN statement per column
 **Prompt 2 — Generate governance artifacts:**
 
 ```
-#02_design/retail_customer_churn_risk_contract.yaml
+#02_design/<product_name>_contract.yaml
 Generate masking policies and DMF setup SQL based on the
 governance rules in this contract.
 Save to 03_deliver/masking_policies.sql and 03_deliver/dmf_setup.sql
@@ -256,7 +256,7 @@ Run this monitoring SQL and report:
 
 ```
 #04_operate/raci_template.md
-#02_design/retail_customer_churn_risk_contract.yaml
+#02_design/<product_name>_contract.yaml
 Populate the RACI template for this data product using the
 contract's owner, consumers, and domain information.
 ```
