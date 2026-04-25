@@ -39,21 +39,6 @@ CoCo takes it from there — Discover → Design → Deliver → Operate → Ref
 
 ## How to Use This Repo
 
-### The `_example/` Convention
-
-Every phase folder contains an `_example/` sub-folder with **ready-made reference artifacts** — data contracts, dbt projects, masking policies, monitoring SQL, and more. When you clone the repo they are immediately available.
-
-You have two paths through each phase:
-
-| Path | How | When to use |
-|------|-----|-------------|
-| **Use the example** | Copy from `_example/` and adapt | Fastest way to explore end-to-end |
-| **Generate your own** | Run CoCo prompts from `$dplc-accelerator` | Building a real data product |
-
-The **lifecycle tracker advances only when you have placed your own artifact at the expected path outside `_example/`** — so `_example/` files serve as reference, never as completion signals.
-
----
-
 ### Step 1: SETUP
 
 - Clone the repo:
