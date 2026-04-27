@@ -1,0 +1,543 @@
+{
+  "type": "record",
+  "name": "RetailBankingEnterpriseDataModel",
+  "namespace": "com.bank.retail",
+  "doc": "Enterprise data model for the Retail Banking domain. Defines the five core source entities used to build data products. Generated from the canonical system-of-record schemas in the Core Banking Platform and Digital Channels systems.",
+  "fields": [
+    {
+      "name": "customers",
+      "type": {
+        "type": "record",
+        "name": "Customer",
+        "namespace": "com.bank.retail",
+        "doc": "Core customer demographics, KYC status, and segmentation. Source system: Core Banking Platform (CBP). One row per retail customer.",
+        "fields": [
+          {
+            "name": "customer_id",
+            "type": "string",
+            "doc": "Unique customer identifier. Format: CUST-XXXXXX. Primary key.",
+            "constraints": { "required": true, "unique": true, "max_length": 50 }
+          },
+          {
+            "name": "customer_name",
+            "type": "string",
+            "doc": "Full legal name of the customer as registered at onboarding.",
+            "constraints": { "required": true, "max_length": 200 },
+            "pii": true,
+            "classification": "confidential"
+          },
+          {
+            "name": "email",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Primary contact email address.",
+            "constraints": { "max_length": 200 },
+            "pii": true,
+            "classification": "confidential"
+          },
+          {
+            "name": "phone",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Primary contact phone number. UK format: +44 7XXX XXXXXX.",
+            "constraints": { "max_length": 20 },
+            "pii": true,
+            "classification": "confidential"
+          },
+          {
+            "name": "date_of_birth",
+            "type": ["null", { "type": "int", "logicalType": "date" }],
+            "default": null,
+            "doc": "Customer date of birth. Used for age verification and regulatory reporting.",
+            "pii": true,
+            "classification": "confidential"
+          },
+          {
+            "name": "customer_segment",
+            "type": {
+              "type": "enum",
+              "name": "CustomerSegment",
+              "symbols": ["MASS_MARKET", "MASS_AFFLUENT", "AFFLUENT", "HIGH_NET_WORTH"],
+              "doc": "Customer value segment assigned by the segmentation model."
+            },
+            "doc": "Customer value segment. Drives product eligibility and service tier.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "region",
+            "type": "string",
+            "doc": "UK region of the customer's primary address.",
+            "constraints": { "required": true, "max_length": 100 }
+          },
+          {
+            "name": "onboarding_channel",
+            "type": ["null", {
+              "type": "enum",
+              "name": "OnboardingChannel",
+              "symbols": ["BRANCH", "ONLINE", "MOBILE_APP", "REFERRAL", "PARTNERSHIP"]
+            }],
+            "default": null,
+            "doc": "Channel through which the customer was acquired."
+          },
+          {
+            "name": "onboarding_date",
+            "type": { "type": "int", "logicalType": "date" },
+            "doc": "Date the customer completed onboarding. Used to compute relationship tenure.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "kyc_status",
+            "type": {
+              "type": "enum",
+              "name": "KycStatus",
+              "symbols": ["VERIFIED", "PENDING_REVIEW", "FAILED"]
+            },
+            "default": "VERIFIED",
+            "doc": "Know-Your-Customer verification status. Only VERIFIED customers are eligible for data product output."
+          },
+          {
+            "name": "created_at",
+            "type": { "type": "long", "logicalType": "timestamp-millis" },
+            "doc": "Record creation timestamp (UTC)."
+          },
+          {
+            "name": "updated_at",
+            "type": { "type": "long", "logicalType": "timestamp-millis" },
+            "doc": "Record last-updated timestamp (UTC)."
+          }
+        ]
+      },
+      "doc": "Customer entity — demographics, segment, and KYC status."
+    },
+    {
+      "name": "accounts",
+      "type": {
+        "type": "record",
+        "name": "Account",
+        "namespace": "com.bank.retail",
+        "doc": "Customer accounts and product holdings. Source system: Core Banking Platform (CBP). One row per account. Multiple accounts per customer.",
+        "fields": [
+          {
+            "name": "account_id",
+            "type": "string",
+            "doc": "Unique account identifier. Format: ACC-XXXXXXXX. Primary key.",
+            "constraints": { "required": true, "unique": true, "max_length": 50 }
+          },
+          {
+            "name": "customer_id",
+            "type": "string",
+            "doc": "Foreign key to Customer.customer_id.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "account_type",
+            "type": {
+              "type": "enum",
+              "name": "AccountType",
+              "symbols": ["CURRENT_ACCOUNT", "SAVINGS_ACCOUNT", "CREDIT_CARD", "LOAN", "ISA"]
+            },
+            "doc": "Product type of the account.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "product_name",
+            "type": "string",
+            "doc": "Branded product name (e.g. Everyday Current, Easy Saver, Cash ISA).",
+            "constraints": { "required": true, "max_length": 100 }
+          },
+          {
+            "name": "account_status",
+            "type": {
+              "type": "enum",
+              "name": "AccountStatus",
+              "symbols": ["ACTIVE", "CLOSED", "SUSPENDED", "DORMANT"]
+            },
+            "doc": "Current account lifecycle status.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "opened_date",
+            "type": { "type": "int", "logicalType": "date" },
+            "doc": "Date the account was opened.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "closed_date",
+            "type": ["null", { "type": "int", "logicalType": "date" }],
+            "default": null,
+            "doc": "Date the account was closed. Null if still active."
+          },
+          {
+            "name": "current_balance",
+            "type": { "type": "bytes", "logicalType": "decimal", "precision": 15, "scale": 2 },
+            "doc": "Current ledger balance of the account in GBP.",
+            "default": "\u0000"
+          },
+          {
+            "name": "available_balance",
+            "type": { "type": "bytes", "logicalType": "decimal", "precision": 15, "scale": 2 },
+            "doc": "Available balance after pending transactions in GBP.",
+            "default": "\u0000"
+          },
+          {
+            "name": "overdraft_limit",
+            "type": { "type": "bytes", "logicalType": "decimal", "precision": 15, "scale": 2 },
+            "doc": "Authorised overdraft limit in GBP. Applicable to CURRENT_ACCOUNT only.",
+            "default": "\u0000"
+          },
+          {
+            "name": "interest_rate",
+            "type": ["null", { "type": "bytes", "logicalType": "decimal", "precision": 5, "scale": 4 }],
+            "default": null,
+            "doc": "Annual interest rate as a decimal (e.g. 0.0350 = 3.50%). Null for current accounts."
+          },
+          {
+            "name": "branch_code",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Branch code where the account was opened. Format: BR-XXXX."
+          },
+          {
+            "name": "created_at",
+            "type": { "type": "long", "logicalType": "timestamp-millis" },
+            "doc": "Record creation timestamp (UTC)."
+          },
+          {
+            "name": "updated_at",
+            "type": { "type": "long", "logicalType": "timestamp-millis" },
+            "doc": "Record last-updated timestamp (UTC)."
+          }
+        ]
+      },
+      "doc": "Account entity — product holdings, balances, and lifecycle status."
+    },
+    {
+      "name": "transactions",
+      "type": {
+        "type": "record",
+        "name": "Transaction",
+        "namespace": "com.bank.retail",
+        "doc": "Account transaction history. Source system: Payment Processing Hub (PPH). One row per transaction. Partitioned by account_id and txn_date.",
+        "fields": [
+          {
+            "name": "txn_id",
+            "type": "string",
+            "doc": "Unique transaction identifier. Format: TXN-XXXXXXXXXX. Primary key.",
+            "constraints": { "required": true, "unique": true, "max_length": 50 }
+          },
+          {
+            "name": "account_id",
+            "type": "string",
+            "doc": "Foreign key to Account.account_id.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "txn_date",
+            "type": { "type": "int", "logicalType": "date" },
+            "doc": "Calendar date of the transaction (UTC). Clustering key.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "txn_timestamp",
+            "type": { "type": "long", "logicalType": "timestamp-millis" },
+            "doc": "Exact timestamp of the transaction (UTC).",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "txn_type",
+            "type": {
+              "type": "enum",
+              "name": "TransactionType",
+              "symbols": ["DIRECT_DEBIT", "STANDING_ORDER", "CARD_PAYMENT", "TRANSFER_OUT", "TRANSFER_IN", "ATM_WITHDRAWAL", "SALARY_CREDIT", "INTEREST"]
+            },
+            "doc": "Classification of the transaction by initiation type.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "txn_category",
+            "type": ["null", {
+              "type": "enum",
+              "name": "TransactionCategory",
+              "symbols": ["GROCERIES", "UTILITIES", "ENTERTAINMENT", "TRANSPORT", "DINING", "SHOPPING", "HEALTHCARE", "INSURANCE", "SUBSCRIPTIONS", "OTHER"]
+            }],
+            "default": null,
+            "doc": "Merchant-derived spending category. Null for non-card transactions."
+          },
+          {
+            "name": "amount",
+            "type": { "type": "bytes", "logicalType": "decimal", "precision": 15, "scale": 2 },
+            "doc": "Transaction amount in GBP. Negative = debit, positive = credit.",
+            "constraints": { "required": true },
+            "default": "\u0000"
+          },
+          {
+            "name": "balance_after",
+            "type": ["null", { "type": "bytes", "logicalType": "decimal", "precision": 15, "scale": 2 }],
+            "default": null,
+            "doc": "Account balance immediately after this transaction in GBP."
+          },
+          {
+            "name": "channel",
+            "type": ["null", {
+              "type": "enum",
+              "name": "TransactionChannel",
+              "symbols": ["MOBILE_APP", "ONLINE", "BRANCH", "ATM", "MERCHANT", "AUTO"]
+            }],
+            "default": null,
+            "doc": "Channel through which the transaction was initiated."
+          },
+          {
+            "name": "merchant_category",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "MCC-derived merchant category for card transactions.",
+            "constraints": { "max_length": 100 }
+          },
+          {
+            "name": "description",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Free-text transaction description.",
+            "constraints": { "max_length": 500 }
+          },
+          {
+            "name": "created_at",
+            "type": { "type": "long", "logicalType": "timestamp-millis" },
+            "doc": "Record ingestion timestamp (UTC)."
+          }
+        ]
+      },
+      "doc": "Transaction entity — payment history and spending behaviour signals."
+    },
+    {
+      "name": "digital_engagement",
+      "type": {
+        "type": "record",
+        "name": "DigitalEngagement",
+        "namespace": "com.bank.retail",
+        "doc": "Mobile app and online banking activity snapshot. Source system: Digital Channels Platform (DCP). One row per customer per measurement_date. Clustered by customer_id and measurement_date.",
+        "fields": [
+          {
+            "name": "engagement_id",
+            "type": "string",
+            "doc": "Unique engagement snapshot identifier. Format: ENG-XXXXXX. Primary key.",
+            "constraints": { "required": true, "unique": true, "max_length": 50 }
+          },
+          {
+            "name": "customer_id",
+            "type": "string",
+            "doc": "Foreign key to Customer.customer_id.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "measurement_date",
+            "type": { "type": "int", "logicalType": "date" },
+            "doc": "Date of this engagement snapshot. Unique per customer.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "login_count_30d",
+            "type": "int",
+            "doc": "Number of successful logins in the last 30 days across all channels.",
+            "default": 0
+          },
+          {
+            "name": "mobile_app_active",
+            "type": "boolean",
+            "doc": "True if the customer has an active mobile app installation.",
+            "default": false
+          },
+          {
+            "name": "online_banking_active",
+            "type": "boolean",
+            "doc": "True if the customer has active online banking credentials.",
+            "default": false
+          },
+          {
+            "name": "last_login_date",
+            "type": ["null", { "type": "int", "logicalType": "date" }],
+            "default": null,
+            "doc": "Date of most recent login. Null if never logged in."
+          },
+          {
+            "name": "last_login_channel",
+            "type": ["null", {
+              "type": "enum",
+              "name": "LoginChannel",
+              "symbols": ["MOBILE_APP", "ONLINE_BANKING"]
+            }],
+            "default": null,
+            "doc": "Channel used for the most recent login."
+          },
+          {
+            "name": "session_count_30d",
+            "type": "int",
+            "doc": "Total number of authenticated sessions in the last 30 days.",
+            "default": 0
+          },
+          {
+            "name": "avg_session_minutes",
+            "type": { "type": "bytes", "logicalType": "decimal", "precision": 5, "scale": 1 },
+            "doc": "Average session duration in minutes over the last 30 days.",
+            "default": "\u0000"
+          },
+          {
+            "name": "features_used_count",
+            "type": "int",
+            "doc": "Number of distinct app/portal features used in the last 30 days. Max 12.",
+            "default": 0
+          },
+          {
+            "name": "push_notifications_enabled",
+            "type": "boolean",
+            "doc": "True if the customer has push notifications enabled on their mobile device.",
+            "default": true
+          },
+          {
+            "name": "created_at",
+            "type": { "type": "long", "logicalType": "timestamp-millis" },
+            "doc": "Record creation timestamp (UTC)."
+          },
+          {
+            "name": "updated_at",
+            "type": { "type": "long", "logicalType": "timestamp-millis" },
+            "doc": "Record last-updated timestamp (UTC)."
+          }
+        ]
+      },
+      "doc": "Digital engagement entity — app and online banking activity signals."
+    },
+    {
+      "name": "complaints",
+      "type": {
+        "type": "record",
+        "name": "Complaint",
+        "namespace": "com.bank.retail",
+        "doc": "Customer complaints and service issue records. Source system: Customer Relations Management (CRM). One row per complaint. Regulatory retention: 7 years.",
+        "fields": [
+          {
+            "name": "complaint_id",
+            "type": "string",
+            "doc": "Unique complaint identifier. Format: COMP-XXXXXX. Primary key.",
+            "constraints": { "required": true, "unique": true, "max_length": 50 }
+          },
+          {
+            "name": "customer_id",
+            "type": "string",
+            "doc": "Foreign key to Customer.customer_id.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "complaint_date",
+            "type": { "type": "int", "logicalType": "date" },
+            "doc": "Date the complaint was registered.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "category",
+            "type": {
+              "type": "enum",
+              "name": "ComplaintCategory",
+              "symbols": ["SERVICE_QUALITY", "FEES_AND_CHARGES", "PRODUCT_ISSUE", "DIGITAL_BANKING", "FRAUD_DISPUTE", "COMMUNICATION", "WAITING_TIME"]
+            },
+            "doc": "FCA-aligned complaint category.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "subcategory",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "More granular sub-classification within the category.",
+            "constraints": { "max_length": 100 }
+          },
+          {
+            "name": "channel",
+            "type": ["null", {
+              "type": "enum",
+              "name": "ComplaintChannel",
+              "symbols": ["BRANCH", "PHONE", "EMAIL", "MOBILE_APP", "SOCIAL_MEDIA", "LETTER"]
+            }],
+            "default": null,
+            "doc": "Channel through which the complaint was submitted."
+          },
+          {
+            "name": "severity",
+            "type": {
+              "type": "enum",
+              "name": "ComplaintSeverity",
+              "symbols": ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+            },
+            "doc": "Assessed severity level. CRITICAL and HIGH trigger escalation SLAs.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "status",
+            "type": {
+              "type": "enum",
+              "name": "ComplaintStatus",
+              "symbols": ["OPEN", "RESOLVED", "ESCALATED", "WITHDRAWN"]
+            },
+            "doc": "Current resolution status of the complaint.",
+            "constraints": { "required": true }
+          },
+          {
+            "name": "resolution_date",
+            "type": ["null", { "type": "int", "logicalType": "date" }],
+            "default": null,
+            "doc": "Date the complaint was resolved. Null if still open."
+          },
+          {
+            "name": "resolution_type",
+            "type": ["null", {
+              "type": "enum",
+              "name": "ResolutionType",
+              "symbols": ["APOLOGY", "REFUND", "PROCESS_CHANGE", "COMPENSATION", "EXPLANATION"]
+            }],
+            "default": null,
+            "doc": "How the complaint was resolved. Null if unresolved."
+          },
+          {
+            "name": "escalated",
+            "type": "boolean",
+            "doc": "True if the complaint was escalated to a senior handler or regulator.",
+            "default": false
+          },
+          {
+            "name": "compensation_amount",
+            "type": ["null", { "type": "bytes", "logicalType": "decimal", "precision": 10, "scale": 2 }],
+            "default": null,
+            "doc": "Compensation amount paid in GBP. Null if no compensation was awarded."
+          },
+          {
+            "name": "root_cause",
+            "type": ["null", {
+              "type": "enum",
+              "name": "RootCause",
+              "symbols": ["Human Error", "System Issue", "Process Gap", "Third Party", "Customer Misunderstanding"]
+            }],
+            "default": null,
+            "doc": "Root cause classification assigned during resolution."
+          },
+          {
+            "name": "description",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Free-text description of the complaint. Retained for regulatory review.",
+            "constraints": { "max_length": 1000 }
+          },
+          {
+            "name": "created_at",
+            "type": { "type": "long", "logicalType": "timestamp-millis" },
+            "doc": "Record creation timestamp (UTC)."
+          },
+          {
+            "name": "updated_at",
+            "type": { "type": "long", "logicalType": "timestamp-millis" },
+            "doc": "Record last-updated timestamp (UTC)."
+          }
+        ]
+      },
+      "doc": "Complaint entity — FCA-aligned complaint records and resolution tracking."
+    }
+  ]
+}

@@ -1,27 +1,34 @@
 ---
 name: contract-generator
-description: "Generate an ODCS v2.2 data contract YAML from a Data Product Canvas. Use when: starting a new data product, creating a contract from business requirements. Triggers: generate contract, create contract, data contract from canvas."
+description: "Generate an ODCS v2.2 data contract YAML from a Data Product Canvas or an enterprise AVRO schema. Use when: starting a new data product, creating a contract from business requirements or an existing data model. Triggers: generate contract, create contract, data contract from canvas, data contract from avro, contract from schema."
 tools: ["read", "write", "ask_user_question", "snowflake_sql_execute"]
 ---
 
 # Contract Generator
 
-Generates a complete ODCS v2.2 data contract YAML from a Data Product Canvas (image or markdown). The contract becomes the single source of truth for all downstream code generation.
+Generates a complete ODCS v2.2 data contract YAML from either a **Data Product Canvas** (image or markdown) or an **Apache Avro enterprise data model** (`.avsc` file). The contract becomes the single source of truth for all downstream code generation.
 
 ## When to Use
 
 - Starting a new data product lifecycle (Phase 2: Design)
 - The user provides a Data Product Canvas and asks for a contract
+- The user provides an Avro schema (`.avsc`) from a schema registry or data lake catalog
 - Regenerating a contract after scope changes
 
-## Inputs
+## Inputs — Two Paths
 
-- **Data Product Canvas**: `01_discover/data_product_canvas.png` (or `.md`, `.pdf`)
-- **Snowflake connection**: To verify source tables exist and get environment details
+| Path | Input | When to use |
+|------|-------|-------------|
+| **A — Canvas** | `01_discover/data_product_canvas.png` (or `.md`, `.pdf`) | Human-driven discovery — requirements live in a diagram |
+| **B — Avro schema** | `01_discover/enterprise_data_model.avsc` (or any `.avsc`) | Enterprise/platform-driven — schema already exists in a registry or data lake |
 
-## Workflow
+Both paths converge at Step 2 (verify tables) and produce the same ODCS v2.2 output.
 
-### Step 1: Read the Data Product Canvas
+---
+
+## Workflow — Path A: Data Product Canvas
+
+### Step 1a: Read the Data Product Canvas
 
 Read the canvas image/document and extract all 10 sections:
 
@@ -38,14 +45,70 @@ Read the canvas image/document and extract all 10 sections:
 | 9 | Org Impact | Teams affected |
 | 10 | Solution Approach | High-level technical approach |
 
+Then continue to **Step 2**.
+
+---
+
+## Workflow — Path B: Avro Enterprise Data Model
+
+### Step 1b: Read and Parse the Avro Schema
+
+Read the `.avsc` file and extract the following for each `record` type:
+
+| Avro element | Maps to ODCS v2.2 |
+|---|---|
+| `record.name` | Upstream source table name (UPPER_SNAKE_CASE) |
+| `record.namespace` | `metadata.namespace` |
+| `record.doc` | Upstream table description in `spec.source.upstream_tables[].description` |
+| `field.name` | Output column name in `spec.schema.properties` (UPPER_SNAKE_CASE) |
+| `field.type` (primitive) | Snowflake data type — see mapping table below |
+| `field.type.logicalType` | Snowflake logical type — see mapping table below |
+| `field.doc` | Column `description` in `spec.schema.properties` |
+| `field.pii: true` | Set `pii: true` on the column; add entry to `spec.access.restricted_columns` with a masking policy |
+| `field.constraints.required: true` | Add `required: true` and a `not_null` quality rule |
+| `field.constraints.unique: true` | Add `unique: true` and a `uniqueness` quality rule |
+| `field.type` is `enum` | Add `enum` constraint with the symbol list |
+| `field.default` | Carry through as column default |
+
+**Avro → Snowflake type mapping:**
+
+| Avro type | logicalType | Snowflake type |
+|-----------|-------------|----------------|
+| `"string"` | — | `VARCHAR` |
+| `"int"` | `date` | `DATE` |
+| `"long"` | `timestamp-millis` | `TIMESTAMP_NTZ` |
+| `"int"` | — | `INTEGER` |
+| `"long"` | — | `BIGINT` |
+| `"float"` | — | `FLOAT` |
+| `"double"` | — | `DOUBLE` |
+| `"boolean"` | — | `BOOLEAN` |
+| `"bytes"` | `decimal` | `NUMBER(precision, scale)` |
+| `["null", T]` (union) | — | nullable `T` |
+| `{"type":"enum","symbols":[...]}` | — | `VARCHAR` + enum constraint |
+
+**PII handling:**
+- Any field with `"pii": true` in the Avro field properties must be flagged as `pii: true` in the contract
+- Add a masking policy entry: `masking_policy: { policy_name: "{FIELD_NAME}_MASK", authorized_roles: ["DATA_STEWARD", "COMPLIANCE"] }`
+- Add the column to `spec.access.restricted_columns`
+
+**Derivation logic:**
+- For source fields that map 1:1 to output columns: `source: "{TABLE}.{field_name}"`, `derivation: "Direct mapping from {TABLE}.{field_name}"`
+- For aggregated or computed output columns not directly in Avro: infer derivation from `field.doc` descriptions across related records (e.g. a `churn_risk_score` column is derived from signals across Customer, Transaction, DigitalEngagement, and Complaints records)
+
+Then continue to **Step 2**.
+
+---
+
+## Common Steps (both paths)
+
 ### Step 2: Verify Source Tables in Snowflake
 
 ```sql
--- For each source table identified in the canvas:
+-- For each source table identified (from canvas or Avro record names):
 SELECT COUNT(*) FROM {database}.{raw_schema}.{table_name};
 ```
 
-Confirm all sources exist and have data.
+Confirm all sources exist and have data before proceeding.
 
 ### Step 3: Get Environment Details
 
@@ -79,6 +142,10 @@ The contract must include these sections:
 
 **Mark PII columns explicitly** with `pii: true` and `masking_policy` including authorized roles.
 
+Add a header comment indicating the source of generation:
+- Path A: `# [INTERVENTION] YYYY-MM-DD: Generated from data product canvas`
+- Path B: `# [INTERVENTION] YYYY-MM-DD: Generated from Avro enterprise data model (01_discover/enterprise_data_model.avsc)`
+
 ### Step 5: Present to User for Review
 
 -> ASK USER: "Here's the data contract. Please review:
@@ -87,6 +154,7 @@ The contract must include these sections:
   - [N] business rules
   - SLA: [freshness] refresh, [availability]% availability
   - PII columns: [list] with masking policies
+  - Source: [Canvas / Avro schema]
   Is this correct? Any changes needed?"
 
 Wait for approval. Iterate if changes are requested.
@@ -94,11 +162,6 @@ Wait for approval. Iterate if changes are requested.
 ### Step 6: Save the Contract
 
 Save to `02_design/{data_product_name}_contract.yaml`.
-
-Add intervention comment:
-```yaml
-# [INTERVENTION] YYYY-MM-DD: Generated from data product canvas
-```
 
 ## Output
 
@@ -114,7 +177,9 @@ Add intervention comment:
 - ALWAYS include at least one business_rule that validates cross-column logic
 - Use Snowflake naming conventions: UPPER_SNAKE_CASE for objects
 - Contract version starts at "1.0.0" for new products
+- When using Path B (Avro), carry forward ALL `pii: true` annotations — never drop them
 
-## Example
+## Examples
 
-See `02_design/_example/churn_risk_data_contract.yaml` for a complete reference contract.
+- Canvas-driven contract: `02_design/_example/churn_risk_data_contract.yaml`
+- Avro input: `01_discover/enterprise_data_model.avsc`

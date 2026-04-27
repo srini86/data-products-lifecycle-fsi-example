@@ -2,7 +2,7 @@
 
 ## On Load — Do This Immediately
 
-**Do not greet the user. Do not ask what they want. Do not explain what you are about to do. Your first output must be the lifecycle tracker followed by the current phase's prompts. Run steps 1–3 now.**
+**Do not greet the user. Do not ask what they want. Do not explain what you are about to do. Your first output must be the lifecycle tracker and the step menu — then STOP and wait for user input. Do NOT execute any prompts, run any commands, or take any action until the user types a step number or custom instruction. Run steps 1–3 now, then stop.**
 
 **1. Detect state** — check whether each of these files exists:
 
@@ -16,8 +16,8 @@
 | 5. Refine | `05_refine/churn_risk_data_contract_v2.yaml` |
 
 Mark each phase:
-- `[✓]` — file exists (artifacts in place)
-- `[→]` — previous phase done but this phase's artifacts not yet generated — **this is the current phase**
+- `[x]` — file exists (artifacts in place)
+- `[>]` — previous phase done but this phase's artifacts not yet generated — **this is the current phase**
 - `[ ]` — pending (earlier phase not complete)
 
 **2. Display the tracker** with the detected markers:
@@ -26,9 +26,9 @@ Mark each phase:
 ╔══════════════════════════════════════════════════════╗
 ║       DATA PRODUCT LIFECYCLE TRACKER                 ║
 ╠══════════════════════════════════════════════════════╣
-║  [✓] 0. SETUP     — environment ready                ║
-║  [✓] 1. DISCOVER  — canvas confirmed                 ║
-║  [→] 2. DESIGN    — current                          ║
+║  [x] 0. SETUP     — environment ready                ║
+║  [x] 1. DISCOVER  — canvas confirmed                 ║
+║  [>] 2. DESIGN    — current                          ║
 ║  [ ] 3. DELIVER   — pending                          ║
 ║  [ ] 4. OPERATE   — pending                          ║
 ║  [ ] 5. REFINE    — pending                          ║
@@ -36,7 +36,41 @@ Mark each phase:
 Current phase: <N> — <PHASE NAME>
 ```
 
-**3. Show a short step menu for the current phase** — display a numbered list of step names only. Do NOT show full prompt text yet. Use this format:
+Then immediately output a **"What's already been built"** section listing every `[x]` phase with its artifacts. Use this format — only include phases that are marked `[x]`:
+
+```
+What's already been built:
+  [x] SETUP    — RETAIL_BANKING_DB (schemas: RAW, DATA_PRODUCTS, GOVERNANCE, MONITORING)
+               DATA_PRODUCTS_WH (XSmall, auto-suspend 5 min)
+               5 source tables: CUSTOMERS (~1,000), ACCOUNTS (~2,500),
+               TRANSACTIONS (~25,000), DIGITAL_ENGAGEMENT (~1,000), COMPLAINTS (~200)
+
+  [x] DISCOVER — 01_discover/data_product_canvas.png
+               Requirements confirmed: Retail Customer Churn Risk data product
+
+  [x] DESIGN   — 02_design/retail_customer_churn_risk_contract.yaml
+               ODCS v2.2 contract: <N> output columns, <N> quality rules,
+               <N> PII columns with masking policies
+
+  [x] DELIVER  — 03_deliver/dbt_project/models/retail_customer_churn_risk.sql
+               03_deliver/masking_policies.sql · 03_deliver/dmf_setup.sql
+               Deployed: RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK
+
+  [x] OPERATE  — 04_operate/monitoring_observability.sql
+               Freshness SLA · quality gate · usage tracking
+
+  [x] REFINE   — 05_refine/churn_risk_data_contract_v2.yaml
+               Schema evolution applied, artifacts regenerated
+```
+
+Rules for the "What's already been built" block:
+- Only show phases marked `[x]` — omit pending and current phases
+- For DESIGN: read `02_design/retail_customer_churn_risk_contract.yaml` and fill in the actual column count, quality rule count, and PII column names
+- For DELIVER: confirm `RETAIL_BANKING_DB.DATA_PRODUCTS.RETAIL_CUSTOMER_CHURN_RISK` exists by checking file presence; do not run SQL on load
+- If no phases are `[x]` yet (fresh clone, nothing done), omit the block entirely
+- Keep it concise — one or two lines per phase, no prose
+
+**3. Show a short step menu for the current phase** — display a numbered list of step names only. Do NOT show full prompt text yet. Do NOT execute anything. STOP here and wait for the user to respond. Use this format:
 
 > **Next up: Phase N — PHASE NAME** (X steps)
 > 1. First step title
@@ -47,6 +81,8 @@ Current phase: <N> — <PHASE NAME>
 > - Type a step number (e.g. `2`) to use the default prompt for that step
 > - Describe what you want (e.g. `Deliver: create dbt model`) to run a custom prompt instead
 > - Type `done` when this phase is complete to advance the tracker
+
+**After showing this menu: STOP. Do not proceed further. Wait for user input.**
 
 Short step titles per phase to use in the menu:
 
@@ -59,7 +95,7 @@ Short step titles per phase to use in the menu:
 | 4 Operate | 1. Run monitoring SQL  ·  2. (Optional) Populate RACI |
 | 5 Refine | 1. Compare v1 vs v2  ·  2. Run evolution SQL  ·  3. Regenerate affected artifacts  ·  4. Re-validate |
 
-When the user picks a step number or says "next", display the full prompt text for that step from the Phase Prompts section below — one step at a time.
+When the user picks a step number or says "next", display the full prompt text for that step from the Phase Prompts section below — one step at a time. Do NOT execute the prompt automatically; show it and wait for the user to confirm or modify before acting.
 When the user types a custom instruction (e.g. "Deliver: create dbt model"), execute it directly without showing the default prompt.
 
 ---
@@ -282,7 +318,7 @@ Compare v1 and v2. List:
 - Any breaking changes that require migration SQL (ALTER TABLE)
 ```
 
-> Once you have saved your updated v2 contract to `05_refine/churn_risk_data_contract_v2.yaml`, the tracker will advance Phase 5 to `[✓]`.
+> Once you have saved your updated v2 contract to `05_refine/churn_risk_data_contract_v2.yaml`, the tracker will advance Phase 5 to `[x]`.
 
 **Step 5b — Run schema evolution SQL:**
 
