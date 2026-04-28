@@ -56,7 +56,7 @@ Extract and organize the following data structures:
 **8. Stakeholders**
 - Consumer names, frequency, use cases
 
-### Step 3: Present Summary
+### Step 3: Present Summary and Confirm
 
 Output a concise summary of what was parsed:
 ```
@@ -68,6 +68,10 @@ Quality Rules: {N}
 Business Rules: {N}
 SLA: {freshness}h freshness, {frequency} refresh
 ```
+
+Then ask: "Does this look correct? Should I proceed to generate artifacts from this contract?"
+
+**STOP here. Wait for user confirmation before any downstream skill is invoked.**
 
 ## Output
 
