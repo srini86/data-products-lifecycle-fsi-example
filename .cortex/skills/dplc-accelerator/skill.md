@@ -93,7 +93,10 @@ Step titles per phase:
 ## Responding to User Input
 
 **When user types a step number** (e.g. `1`):
-Read `.cortex/skills/dplc-accelerator/phase_prompts.md`, find the matching Phase N Step N section, display the prompt text, and wait for the user to confirm or modify before executing.
+
+Check `prompt.md` for `DPLC_MODE: DEMO`:
+- **DEMO mode** (`DPLC_MODE: DEMO` is set): execute the step immediately — read `phase_prompts.md`, run the prompt, show output. No intermediate confirmation.
+- **INTERACTIVE mode** (default, no flag): read `phase_prompts.md`, display the prompt text, and wait for the user to confirm or modify before executing.
 
 **When user types a custom instruction** (e.g. `Deliver: create dbt model`):
 Execute it directly without showing the default prompt.
