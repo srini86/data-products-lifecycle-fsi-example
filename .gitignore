@@ -27,3 +27,4 @@ demo/
 00_setup/update_todo.sh
 03_deliver/.streamlit/
 01_discover/*.pdf
+prompt_original.md
