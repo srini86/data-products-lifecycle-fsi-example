@@ -1,28 +1,30 @@
 ---
 name: contract-generator
-description: "Generate an ODCS v2.2 data contract YAML from a Data Product Canvas or an enterprise AVRO schema. Use when: starting a new data product, creating a contract from business requirements or an existing data model. Triggers: generate contract, create contract, data contract from canvas, data contract from avro, contract from schema."
-tools: ["read", "write", "ask_user_question", "snowflake_sql_execute"]
+description: "Generate an ODCS v2.2 data contract YAML from a Data Product Canvas, an enterprise AVRO schema, or a Confluence documentation page. Use when: starting a new data product, creating a contract from business requirements or an existing data model or spec page. Triggers: generate contract, create contract, data contract from canvas, data contract from avro, contract from schema, contract from confluence, contract from spec page."
+tools: ["read", "write", "ask_user_question", "snowflake_sql_execute", "mcp__atlassian__getConfluencePage", "mcp__atlassian__searchConfluenceUsingCql"]
 ---
 
 # Contract Generator
 
-Generates a complete ODCS v2.2 data contract YAML from either a **Data Product Canvas** (image or markdown) or an **Apache Avro enterprise data model** (`.avsc` file). The contract becomes the single source of truth for all downstream code generation.
+Generates a complete ODCS v2.2 data contract YAML from a **Data Product Canvas**, an **Apache Avro enterprise data model** (`.avsc`), or a **Confluence documentation page**. The contract becomes the single source of truth for all downstream code generation.
 
 ## When to Use
 
 - Starting a new data product lifecycle (Phase 2: Design)
 - The user provides a Data Product Canvas and asks for a contract
 - The user provides an Avro schema (`.avsc`) from a schema registry or data lake catalog
+- The user provides a Confluence page URL or page ID containing a data spec or requirements
 - Regenerating a contract after scope changes
 
-## Inputs — Two Paths
+## Inputs — Three Paths
 
 | Path | Input | When to use |
 |------|-------|-------------|
 | **A — Canvas** | `01_discover/data_product_canvas.png` (or `.md`, `.pdf`) | Human-driven discovery — requirements live in a diagram |
 | **B — Avro schema** | `01_discover/enterprise_data_model.avsc` (or any `.avsc`) | Enterprise/platform-driven — schema already exists in a registry or data lake |
+| **C — Confluence** | Confluence page URL or page ID | Requirements live in a Confluence spec page, data dictionary, or design doc |
 
-Both paths converge at Step 2 (verify tables) and produce the same ODCS v2.2 output.
+All paths converge at Step 2 (verify tables) and produce the same ODCS v2.2 output.
 
 ---
 
@@ -99,7 +101,38 @@ Then continue to **Step 2**.
 
 ---
 
-## Common Steps (both paths)
+## Workflow — Path C: Confluence Documentation Page
+
+### Step 1c: Fetch and Parse the Confluence Page
+
+Fetch the page using `mcp__atlassian__getConfluencePage` with the page ID extracted from the URL.
+
+If the user provides a URL like `https://snowflakecomputing.atlassian.net/wiki/spaces/SPACE/pages/12345678/Page+Title`, extract `12345678` as the page ID and `snowflakecomputing.atlassian.net` as the cloudId.
+
+Extract the following sections from the page content:
+
+| Confluence content | Maps to ODCS v2.2 |
+|---|---|
+| Page title / overview paragraph | `spec.info.title`, `spec.info.description` |
+| Data owner / steward name | `spec.info.owner`, `spec.access` |
+| Source systems or table names mentioned | `spec.source.upstream_tables` |
+| Column definitions / data dictionary table | `spec.schema.properties` |
+| Quality expectations / acceptance criteria | `spec.quality_rules` |
+| SLA / refresh schedule / freshness requirements | `spec.sla` |
+| PII / sensitive fields / regulatory tags | `pii: true`, `spec.access.restricted_columns` |
+| Consumers / downstream teams | `spec.stakeholders` |
+
+If the page links to sub-pages (e.g. a "Data Dictionary" or "Column Definitions" child page), fetch those too using `mcp__atlassian__getConfluencePage` and merge the content.
+
+If important sections are missing from the page, ask the user to supply them before generating the contract.
+
+Add header comment: `# [INTERVENTION] YYYY-MM-DD: Generated from Confluence page {page_title} (ID: {page_id})`
+
+Then continue to **Step 2**.
+
+---
+
+## Common Steps (all paths)
 
 ### Step 2: Verify Source Tables in Snowflake
 
@@ -154,7 +187,7 @@ Add a header comment indicating the source of generation:
   - [N] business rules
   - SLA: [freshness] refresh, [availability]% availability
   - PII columns: [list] with masking policies
-  - Source: [Canvas / Avro schema]
+  - Source: [Canvas / Avro schema / Confluence page: {page_title}]
   Is this correct? Any changes needed?"
 
 Wait for approval. Iterate if changes are requested.
@@ -178,8 +211,11 @@ Save to `02_design/{data_product_name}_contract.yaml`.
 - Use Snowflake naming conventions: UPPER_SNAKE_CASE for objects
 - Contract version starts at "1.0.0" for new products
 - When using Path B (Avro), carry forward ALL `pii: true` annotations — never drop them
+- When using Path C (Confluence), if PII fields are mentioned anywhere on the page (including in comments or notes), flag them — err on the side of inclusion
+- When using Path C (Confluence), if the page content is ambiguous, ask the user for clarification before generating — do not invent schema details
 
 ## Examples
 
 - Canvas-driven contract: `02_design/_example/churn_risk_data_contract.yaml`
 - Avro input: `01_discover/enterprise_data_model.avsc`
+- Confluence input: provide the page URL when invoking the skill

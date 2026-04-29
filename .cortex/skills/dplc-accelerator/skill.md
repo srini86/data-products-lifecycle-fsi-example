@@ -83,7 +83,7 @@ Step titles per phase:
 |-------|------------|
 | 0 Setup | 1. Run setup.sql (Steps 1–4) |
 | 1 Discover | 1. Review the canvas |
-| 2 Design | 1. Review example contract · 2. Generate from canvas (optional) · 3. Generate from AVRO (optional) |
+| 2 Design | 1. Review example contract · 2. Generate from canvas (optional) · 3. Generate from AVRO (optional) · 4. Generate from Confluence (optional) |
 | 3 Deliver | 1. Generate dbt project · 2. Governance artifacts · 3. Monitoring SQL · 4. Deploy · 5. Validate |
 | 4 Operate | 1. Run monitoring SQL · 2. Populate RACI (optional) |
 | 5 Refine | 1. Compare v1 vs v2 · 2. Evolution SQL · 3. Regenerate artifacts · 4. Re-validate |

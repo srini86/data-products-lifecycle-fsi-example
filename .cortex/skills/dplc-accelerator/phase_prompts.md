@@ -72,6 +72,16 @@ Map PII-annotated fields to masking policy entries.
 Save to 02_design/<product_name>_contract.yaml
 ```
 
+**Step 4 — (Optional) Generate contract from Confluence:**
+
+```
+$contract-generator
+Confluence page: https://snowflakecomputing.atlassian.net/wiki/spaces/<SPACE>/pages/<PAGE_ID>/<Page+Title>
+Generate an ODCS v2.2 data contract from this Confluence documentation page.
+Extract schema definitions, SLAs, quality rules, PII fields, and stakeholders.
+Save to 02_design/<product_name>_contract.yaml
+```
+
 > **Review checkpoint:** Confirm all upstream tables are verified against Snowflake. Confirm all PII columns are flagged and quality rules are testable.
 
 **Advance when**: Contract reviewed (or generated), upstream tables verified, ready for code generation.
