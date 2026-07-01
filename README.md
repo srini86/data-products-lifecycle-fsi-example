@@ -12,12 +12,31 @@ Build a production-ready **Retail Customer Churn Risk** data product on Snowflak
 
 ## Quick Start
 
-Two steps to go from zero to a governed, deployed data product:
+### Option 1: Install Plugin (Recommended)
 
-1. **SETUP** — run `00_setup/setup.sql` in Snowsight to create the database, schemas, and sample data
-2. **START DPLC** (Data Product Lifecycle) — open Cortex Code in this directory and type `$dplc-accelerator`
+Install all 13 skills directly via Cortex Code:
 
-CoCo takes it from there — Discover → Design → Deliver → Operate → Refine, guided step by step.
+```bash
+cortex plugin install github:srini86/data-products-lifecycle-fsi-example
+```
+
+Then run the setup SQL and start the lifecycle:
+1. Open `00_setup/setup.sql` in Snowsight and run Steps 1–4
+2. Open Cortex Code and type: `$sf-data-product-lifecycle:dplc-accelerator`
+
+### Option 2: Clone & Use Locally
+
+Clone the repo and use skills with full examples:
+
+```bash
+git clone https://github.com/srini86/data-products-lifecycle-fsi-example
+cd data-products-lifecycle-fsi-example
+cortex
+```
+
+Then type: `$dplc-accelerator`
+
+Both options give you access to 13 production-ready skills for building governed data products.
 
 ---
 
@@ -34,6 +53,30 @@ CoCo takes it from there — Discover → Design → Deliver → Operate → Ref
 | **Deliver** | Generate code, deploy, test | `03_deliver/` |
 | **Operate** | Monitor SLAs, quality, usage | `04_operate/` |
 | **Refine** | Evolve with new features and versions | `05_refine/` |
+
+---
+
+## Plugin Structure
+
+This repo is a Cortex Code plugin containing 13 skills:
+
+| Skill | Purpose |
+|-------|---------|
+| **dplc-accelerator** | Lifecycle tracker & orchestrator |
+| **contract-generator** | Generate ODCS v2.2 contracts from Canvas/Avro/Confluence |
+| **contract-parser** | Parse and validate contracts |
+| **contract-verifier** | Verify contract against Snowflake tables |
+| **data-product-generator** | Orchestrate full deliver phase (invokes 7 sub-skills) |
+| **model-sql-generator** | Generate dbt SQL models |
+| **schema-yml-generator** | Generate dbt schema.yml |
+| **test-generator** | Generate dbt tests |
+| **masking-policy-generator** | Generate PII masking policies |
+| **dmf-setup-generator** | Generate Data Metric Functions |
+| **semantic-view-generator** | Generate semantic views |
+| **marketplace-listing-generator** | Generate Internal Marketplace listings |
+| **capture-feedback** | Capture user feedback |
+
+**Install**: `cortex plugin install github:srini86/data-products-lifecycle-fsi-example`
 
 ---
 
