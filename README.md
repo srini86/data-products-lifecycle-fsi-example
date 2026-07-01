@@ -12,31 +12,36 @@ Build a production-ready **Retail Customer Churn Risk** data product on Snowflak
 
 ## Quick Start
 
-### Option 1: Install Plugin (Recommended)
+### For Demos & Training (With Sample Data)
 
-Install all 13 skills directly via Cortex Code:
+Clone the repo to get skills + full example with sample data:
+
+```bash
+git clone https://github.com/srini86/data-products-lifecycle-fsi-example
+cd data-products-lifecycle-fsi-example
+```
+
+1. Run `00_setup/setup.sql` in Snowsight (creates database + loads 5 source tables)
+2. Start Cortex Code: `cortex`
+3. Type: `$dplc-accelerator`
+
+Skills are auto-discovered from `.cortex/skills/` directory.
+
+### For Customer POCs (Your Own Data)
+
+Install just the plugin to use skills on your own data:
 
 ```bash
 cortex plugin install github:srini86/data-products-lifecycle-fsi-example
 ```
 
-Then run the setup SQL and start the lifecycle:
-1. Open `00_setup/setup.sql` in Snowsight and run Steps 1–4
-2. Open Cortex Code and type: `$sf-data-product-lifecycle:dplc-accelerator`
-
-### Option 2: Clone & Use Locally
-
-Clone the repo and use skills with full examples:
-
+Then in any project:
 ```bash
-git clone https://github.com/srini86/data-products-lifecycle-fsi-example
-cd data-products-lifecycle-fsi-example
 cortex
+$sf-data-product-lifecycle:dplc-accelerator
 ```
 
-Then type: `$dplc-accelerator`
-
-Both options give you access to 13 production-ready skills for building governed data products.
+Skills work with any Snowflake database/tables you point them at.
 
 ---
 
