@@ -1,0 +1,17 @@
+{
+  "name": "sf-data-product-lifecycle",
+  "description": "Complete data product lifecycle automation: contract generation, dbt models, masking policies, DMF setup, semantic views, deployment",
+  "version": "1.0.0",
+  "author": "Srinivasan Kuppusamy",
+  "repository": "https://github.com/srini86/data-products-lifecycle-fsi-example",
+  "tags": [
+    "data-product",
+    "fsi",
+    "dbt",
+    "governance",
+    "lifecycle",
+    "odcs",
+    "banking",
+    "regulatory"
+  ]
+}
