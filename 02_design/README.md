@@ -26,7 +26,7 @@ cp 02_design/_example/churn_risk_data_contract.yaml \
 Then open the file in CoCo and customise it for your product.
 
 ### Option B — Generate from the canvas
-In Cortex Code:
+In CoCo:
 ```
 $contract-generator
 #01_discover/data_product_canvas.png

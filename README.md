@@ -5,7 +5,7 @@ Build a production-ready **Retail Customer Churn Risk** data product on Snowflak
 📝 **Blog Post:** [Building Enterprise Grade Data Products for FSI — Moving from Strategy to Tactics](https://datadonutz.medium.com/building-regulatory-grade-data-products-on-snowflake-for-fsi-938895e25e35)
 
 <p align="center">
-  <img src="00_setup/coco-demo.gif" alt="Cortex Code lifecycle demo" width="700"/>
+  <img src="00_setup/coco-demo.gif" alt="CoCo lifecycle demo" width="700"/>
 </p>
 
 ---
@@ -22,7 +22,7 @@ cd data-products-lifecycle-fsi-example
 ```
 
 1. Run `00_setup/setup.sql` in Snowsight (creates database + loads 5 source tables)
-2. Start Cortex Code: `cortex`
+2. Start CoCo: `cortex`
 3. Type: `$dplc-accelerator`
 
 Skills are auto-discovered from `.cortex/skills/` directory.
@@ -63,7 +63,7 @@ Skills work with any Snowflake database/tables you point them at.
 
 ## Plugin Structure
 
-This repo is a Cortex Code plugin containing 13 skills:
+This repo is a CoCo plugin containing 13 skills:
 
 | Skill | Purpose |
 |-------|---------|
@@ -99,7 +99,7 @@ This repo is a Cortex Code plugin containing 13 skills:
 
 ### Step 2: START DPLC (Data Product Lifecycle)
 
-Start Cortex Code in the repo directory:
+Start CoCo in the repo directory:
 
 ```bash
 cortex

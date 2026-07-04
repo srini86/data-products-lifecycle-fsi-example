@@ -5,7 +5,7 @@
 - **RACI template** — Responsibility matrix for data product ownership.
 - **Monitoring & observability SQL** — Snowflake-native monitoring setup (DMF checks, alerts, usage tracking).
 
-## How to use Cortex Code
+## How to use CoCo
 
 ```
 Prompt CoCo:

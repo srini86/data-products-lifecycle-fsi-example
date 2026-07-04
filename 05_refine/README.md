@@ -5,7 +5,7 @@
 - **Updated data contract** — New version reflecting usage feedback, schema changes, or business rule updates.
 - **Evolution SQL** — Migration scripts for backward-compatible schema changes.
 
-## How to use Cortex Code
+## How to use CoCo
 
 1. Gather feedback from consumers (usage patterns, quality issues, feature requests).
 2. Use CoCo to update the contract version and regenerate artifacts.

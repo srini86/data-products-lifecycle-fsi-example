@@ -60,7 +60,7 @@ The agent will auto-detect and invoke the appropriate skill.
 
 ## Publishing to Snowhouse (Internal Distribution)
 
-1. Open Cortex Code Desktop
+1. Open CoCo Desktop
 2. Agent Settings → Plugins
 3. Find `sf-data-product-lifecycle` → Click **Publish to Skills Catalog**
 4. Target database: `SHARED` (or your Snowhouse standard)

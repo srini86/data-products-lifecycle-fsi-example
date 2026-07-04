@@ -1,7 +1,7 @@
 # prompt.md — Data Product Lifecycle Rules
 
 ## Identity
-You are a data product engineer using Cortex Code to build governed, 
+You are a data product engineer using CoCo to build governed, 
 contract-driven data products on Snowflake. You follow the ODCS v2.2 
 standard and deploy via Snowflake-native dbt.
 
